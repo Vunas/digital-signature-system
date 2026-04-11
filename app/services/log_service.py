@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
-from app.models.log import AuditLog
-from app.models.verify_log import VerifyLog
+from app.models.timestamp import AuditLog
+from app.models.timestamp import VerifyLog
 
 
 def create_audit_log(
@@ -25,7 +25,7 @@ def create_verify_log(
     db: Session, document_id: int, signature_id: int, is_valid: bool, message: str
 ):
     """
-    Ghi nhận lịch sử xác thực chữ ký (Ăn điểm cực mạnh)
+    Ghi nhận lịch sử xác thực chữ ký
     """
     log_entry = VerifyLog(
         document_id=document_id,

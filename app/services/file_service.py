@@ -1,40 +1,43 @@
-import hashlib
 import os
 from fastapi import UploadFile
 from sqlalchemy.orm import Session
-from app.models.document import Document
+import uuid
 
-UPLOAD_DIR = "uploads/documents"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
+from app.utils.file_utils import save_upload_file
+from app.utils.hash_utils import calculate_file_hash
+from app.repositories.document_repo import document_repo
 
 
-def process_and_save_document(db: Session, file: UploadFile, user_id: int) -> Document:
-    """
-    Đọc file upload, tính mã băm SHA-256 và lưu thông tin vào Database.
-    """
-    content = file.file.read()
+class FileService:
+    async def upload_document(self, db: Session, user_id: int, file: UploadFile):
+        """
+        Xử lý upload file:
+        1. Tạo tên file unique tránh trùng lặp
+        2. Lưu xuống ổ cứng
+        3. Tính toán mã băm SHA-256
+        4. Lưu thông tin vào Database
+        """
+        # Tạo tên file an toàn với UUID
+        safe_filename = f"{uuid.uuid4().hex[:8]}_{file.filename}"
 
-    # 1. Tính toán mã băm SHA-256 (Hash function)
-    hasher = hashlib.sha256()
-    hasher.update(content)
-    file_hash = hasher.hexdigest()
+        # Lưu file vật lý
+        saved_path = await save_upload_file(file, safe_filename)
 
-    # 2. Lưu file vật lý (có thể bỏ qua nếu dùng Cloud hoặc Stateless)
-    file_path = os.path.join(UPLOAD_DIR, file.filename)
-    with open(file_path, "wb") as f:
-        f.write(content)
+        # Lấy kích thước và tính Hash
+        file_size = os.path.getsize(saved_path)
+        file_hash = calculate_file_hash(saved_path)
 
-    # 3. Lưu thông tin vào Database
-    new_doc = Document(
-        user_id=user_id,
-        file_name=file.filename,
-        file_path=file_path,
-        file_size=len(content),
-        mime_type=file.content_type,
-        file_hash=file_hash,
-    )
-    db.add(new_doc)
-    db.commit()
-    db.refresh(new_doc)
+        # Lưu vào Database thông qua Repository
+        doc = document_repo.create(
+            db=db,
+            user_id=user_id,
+            file_name=file.filename,
+            original_file_path=saved_path,
+            file_size=file_size,
+            file_hash=file_hash,
+            mime_type=file.content_type,
+        )
+        return doc
 
-    return new_doc
+
+file_service = FileService()

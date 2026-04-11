@@ -1,30 +1,26 @@
-from sqlalchemy import String, Boolean, DateTime, func
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import Column, Integer, String, Boolean, DateTime
+from sqlalchemy.sql import func
+from sqlalchemy.orm import relationship
 from app.db.base import Base
-from datetime import datetime
 
 
 class User(Base):
     __tablename__ = "users"
 
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    username: Mapped[str] = mapped_column(
-        String(50), unique=True, index=True, nullable=False
-    )
-    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String(50), unique=True, nullable=False, index=True)
+    password_hash = Column(String, nullable=False)
 
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
-    updated_at: Mapped[datetime] = mapped_column(
+    is_active = Column(Boolean, default=True)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
-    # Relationships (Liên kết bảng)
-    keys = relationship("Key", back_populates="owner", cascade="all, delete-orphan")
-    documents = relationship(
-        "Document", back_populates="owner", cascade="all, delete-orphan"
+    # Relationships
+    keys = relationship("Key", back_populates="owner", cascade="all, delete")
+    documents = relationship("Document", back_populates="owner", cascade="all, delete")
+    certificates = relationship(
+        "Certificate", back_populates="owner", cascade="all, delete"
     )
-    signatures = relationship("Signature", back_populates="signer")
-    logs = relationship("AuditLog", back_populates="user")

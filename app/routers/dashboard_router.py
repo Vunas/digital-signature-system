@@ -1,112 +1,98 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-from app.db.database import get_db
-from app.models.key import Key
-from app.models.document import Document
-from app.models.signature import Signature
-from fastapi.responses import FileResponse
-import os
+import base64
+
+from app.core.dependencies import get_db, get_current_user
+from app.models.user import User
+from app.repositories.key_repo import key_repo
+from app.repositories.document_repo import document_repo
+from app.repositories.signature_repo import signature_repo
 
 router = APIRouter(prefix="/dashboard-api", tags=["Dashboard"])
 
 
-class MockUser:
-    id: int = 1
-    username: str = "admin"
-
-
 @router.get("/summary")
 def get_dashboard_summary(
-    db: Session = Depends(get_db), current_user=Depends(lambda: MockUser())
+    db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
 ):
     """
-    Trữ lượng API gộp: Trả về thống kê và toàn bộ danh sách (Keys, Docs, Signatures)
-    để hiển thị trên Dashboard chỉ với 1 lần gọi.
+    API cung cấp toàn bộ dữ liệu thống kê cho giao diện Dashboard HTML
+    (Tổng số khóa, văn bản, lịch sử ký số,...)
     """
-    # 1. Fetch Danh sách Khóa
-    keys = (
-        db.query(Key)
-        .filter(Key.user_id == current_user.id)
-        .order_by(Key.created_at.desc())
-        .all()
-    )
+    keys = key_repo.get_all_by_user(db, current_user.id)
+    docs = document_repo.get_all_by_user(db, current_user.id)
 
-    # 2. Fetch Danh sách Tài liệu
-    docs = (
-        db.query(Document)
-        .filter(Document.user_id == current_user.id)
-        .order_by(Document.uploaded_at.desc())
-        .all()
-    )
+    # Gom dữ liệu chữ ký từ các file của User
+    signatures_list = []
+    for doc in docs:
+        doc_sigs = signature_repo.get_by_document(db, doc.id)
+        for sig in doc_sigs:
+            # Mã hóa giá trị signature ra base64 để hiển thị trên UI
+            sig_base64 = (
+                base64.b64encode(sig.signature_value).decode("utf-8")
+                if sig.signature_value
+                else "N/A"
+            )
 
-    # 3. Fetch Danh sách Chữ ký (Kèm theo thông tin liên kết)
-    sigs = (
-        db.query(Signature)
-        .filter(Signature.user_id == current_user.id)
-        .order_by(Signature.signed_at.desc())
-        .all()
-    )
+            # Tìm tên khóa (nếu có)
+            key_name = "Khóa bị ẩn/xóa"
+            key = key_repo.get_by_id(db, sig.key_id, current_user.id)
+            if key:
+                key_name = key.key_name
 
-    # Định dạng dữ liệu Keys
-    keys_data = [
-        {
-            "id": k.id,
-            "name": k.key_name,
-            "algorithm": f"{k.algorithm}-{k.key_size}",
-            "storage_type": k.storage_type,
-            "public_key": k.public_key,
-            "private_key_encrypted": k.private_key_encrypted,
-            "created_at": k.created_at.strftime("%Y-%m-%d %H:%M"),
-            "is_revoked": k.is_revoked,
-        }
-        for k in keys
-    ]
+            signatures_list.append(
+                {
+                    "id": sig.id,
+                    "document_name": doc.file_name,
+                    "key_id": sig.key_id,
+                    "key_name": key_name,
+                    "signer": sig.signer_name,
+                    "algorithm": sig.signature_algorithm,
+                    "signed_at": (
+                        sig.created_at.strftime("%H:%M:%S %d-%m-%Y")
+                        if sig.created_at
+                        else ""
+                    ),
+                    "signature_base64": sig_base64,
+                }
+            )
 
-    # Định dạng dữ liệu Documents
-    docs_data = [
-        {
-            "id": d.id,
-            "name": d.file_name,
-            "hash": d.file_hash,
-            "size": round(d.file_size / 1024, 2),  # KB
-            "uploaded_at": d.uploaded_at.strftime("%Y-%m-%d %H:%M"),
-        }
-        for d in docs
-    ]
-
-    # Định dạng dữ liệu Signatures
-    sigs_data = [
-        {
-            "id": s.id,
-            "document_name": s.document.file_name if s.document else "N/A",
-            "key_name": s.key.key_name if s.key else "N/A",
-            "key_id": s.key_id,
-            "signature_base64": s.signature,
-            "algorithm": s.signature_algorithm,
-            "signer": current_user.username,
-            "signed_at": s.signed_at.strftime("%Y-%m-%d %H:%M"),
-        }
-        for s in sigs
-    ]
-
+    # Format JSON trả về để tương thích với thẻ script loadDashboard() trong dashboard.html
     return {
         "stats": {
             "total_keys": len(keys),
             "total_docs": len(docs),
-            "total_sigs": len(sigs),
+            "total_sigs": len(signatures_list),
         },
-        "keys": keys_data,
-        "documents": docs_data,
-        "signatures": sigs_data,
+        "keys": [
+            {
+                "id": k.id,
+                "name": k.key_name,
+                "algorithm": k.algorithm,
+                "storage_type": k.storage_type,
+                "created_at": k.created_at.strftime("%d-%m-%Y") if k.created_at else "",
+                # Chuyển kiểu bytes sang String để frontend đọc được
+                "public_key": (
+                    k.public_key.decode("utf-8")
+                    if isinstance(k.public_key, bytes)
+                    else k.public_key
+                ),
+                "private_key_encrypted": (
+                    base64.b64encode(k.private_key_encrypted).decode("utf-8")
+                    if isinstance(k.private_key_encrypted, bytes)
+                    else ""
+                ),
+            }
+            for k in keys
+        ],
+        "documents": [
+            {
+                "id": d.id,
+                "name": d.file_name,
+                "hash": d.file_hash,
+                "size": round(d.file_size / 1024, 2) if d.file_size else 0,
+            }
+            for d in docs
+        ],
+        "signatures": signatures_list,
     }
-
-
-@router.get("/download-doc/{doc_id}")
-def download_document(doc_id: int, db: Session = Depends(get_db)):
-    """API hỗ trợ tải file PDF gốc"""
-    doc = db.query(Document).filter(Document.id == doc_id).first()
-    if not doc or not os.path.exists(doc.file_path):
-        return {"error": "File không tồn tại"}
-    return FileResponse(
-        path=doc.file_path, filename=doc.file_name, media_type=doc.mime_type
-    )

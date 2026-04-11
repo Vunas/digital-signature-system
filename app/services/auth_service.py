@@ -1,46 +1,37 @@
-from datetime import datetime, timedelta
-from jose import jwt
-from fastapi import HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
-from app.models.user import User
-from app.core.security import verify_password, get_password_hash
-from app.core.config import settings
-from app.schemas.user_schema import UserCreate
+
+from core.dependencies import get_db
+from core.security import verify_password, create_access_token
+from repositories.user_repo import user_repo
+from schemas.user_schema import UserCreate, UserResponse, TokenResponse
+
+router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
-def create_access_token(data: dict, expires_delta: timedelta | None = None):
-    to_encode = data.copy()
-    if expires_delta:
-        expire = datetime.utcnow() + expires_delta
-    else:
-        expire = datetime.utcnow() + timedelta(minutes=15)
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(
-        to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM
-    )
-    return encoded_jwt
+@router.post("/register", response_model=UserResponse)
+def register(user_in: UserCreate, db: Session = Depends(get_db)):
+    """Đăng ký tài khoản mới"""
+    user = user_repo.get_by_username(db, username=user_in.username)
+    if user:
+        raise HTTPException(status_code=400, detail="Tên đăng nhập đã tồn tại")
+    return user_repo.create(db, obj_in=user_in)
 
 
-def authenticate_user(db: Session, username: str, password: str) -> User | None:
-    user = db.query(User).filter(User.username == username).first()
-    if not user:
-        return None
-    if not verify_password(password, user.password_hash):
-        return None
-    return user
+@router.post("/login", response_model=TokenResponse)
+def login(
+    form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)
+):
+    """Đăng nhập và lấy JWT Token"""
+    user = user_repo.get_by_username(db, username=form_data.username)
+    if not user or not verify_password(form_data.password, user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Sai tên đăng nhập hoặc mật khẩu",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
-
-def register_user(db: Session, user_in: UserCreate) -> User:
-    # Kiểm tra user tồn tại chưa
-    user_exists = db.query(User).filter(User.username == user_in.username).first()
-    if user_exists:
-        raise HTTPException(status_code=400, detail="Username đã tồn tại")
-
-    # Băm mật khẩu
-    hashed_pwd = get_password_hash(user_in.password)
-    new_user = User(username=user_in.username, password_hash=hashed_pwd)
-
-    db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
-    return new_user
+    # Tạo Token có giá trị trong 30 phút
+    access_token = create_access_token(data={"sub": user.username})
+    return {"access_token": access_token, "token_type": "bearer"}

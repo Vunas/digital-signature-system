@@ -7,14 +7,24 @@
     <div class="bg-white shadow-xl rounded-2xl overflow-hidden border border-gray-100">
         <div class="bg-indigo-50 px-6 py-4 border-b border-indigo-100">
             <h3 class="text-xl font-bold text-indigo-800"><i class="fa-solid fa-key mr-2"></i> Khởi Tạo Cặp Khóa Mới</h3>
-            <p class="text-sm text-indigo-600 mt-1">Tạo khóa RSA công khai và bí mật để ký văn bản.</p>
+            <p class="text-sm text-indigo-600 mt-1">Tạo khóa công khai, khóa bí mật và tự động xin cấp chứng chỉ (CSR) từ Internal CA.</p>
         </div>
         
         <form id="key-form" class="p-6 space-y-6">
-            <!-- Tên khóa -->
-            <div>
-                <label class="block text-sm font-semibold text-gray-700 mb-1">Tên gợi nhớ cho Khóa</label>
-                <input type="text" id="keyName" required placeholder="VD: Khóa Cty, Khóa Cá Nhân 2026..." class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+            <!-- Tên khóa và Loại khóa -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1">Tên gợi nhớ cho Khóa</label>
+                    <input type="text" id="keyName" required placeholder="VD: Khóa Cá Nhân 2026..." class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1">Thuật toán & Độ dài khóa</label>
+                    <select id="keyAlgorithm" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 text-sm">
+                        <option value="RSA_2048">RSA 2048-bit (Chuẩn mực, khuyên dùng)</option>
+                        <option value="RSA_4096">RSA 4096-bit (Bảo mật tối đa)</option>
+                        <option value="ECDSA_P256">ECDSA P-256 (Nhanh, kích thước nhỏ)</option>
+                    </select>
+                </div>
             </div>
 
             <!-- Tùy chọn lưu trữ -->
@@ -22,7 +32,7 @@
                 <label class="block text-sm font-semibold text-gray-700 mb-3">Nơi lưu trữ Private Key</label>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <!-- Option Server -->
-                    <label class="relative flex cursor-pointer rounded-lg border bg-white p-4 shadow-sm focus:outline-none border-indigo-500 ring-1 ring-indigo-500" id="label-server">
+                    <label class="relative flex cursor-pointer rounded-lg border bg-indigo-50 p-4 shadow-sm focus:outline-none border-indigo-500 ring-1 ring-indigo-500" id="label-server">
                         <input type="radio" name="storageType" value="server" class="sr-only" checked onchange="toggleStorageMode()">
                         <span class="flex flex-1">
                             <span class="flex flex-col">
@@ -30,7 +40,7 @@
                                 <span class="mt-1 flex items-center text-sm text-gray-500">Tiện lợi. Khóa được mã hóa an toàn.</span>
                             </span>
                         </span>
-                        <i class="fa-solid fa-circle-check text-indigo-600 mt-0.5 h-5 w-5 hidden" id="icon-server"></i>
+                        <i class="fa-solid fa-circle-check text-indigo-600 mt-0.5 h-5 w-5" id="icon-server"></i>
                     </label>
 
                     <!-- Option Local -->
@@ -39,7 +49,7 @@
                         <span class="flex flex-1">
                             <span class="flex flex-col">
                                 <span class="block text-sm font-medium text-gray-900"><i class="fa-solid fa-laptop-file text-gray-600 mr-1"></i> Lưu thiết bị cá nhân (Local)</span>
-                                <span class="mt-1 flex items-center text-sm text-gray-500">Bảo mật tối đa. Server không lưu Private Key.</span>
+                                <span class="mt-1 flex items-center text-sm text-gray-500">Bảo mật cao. Server không lưu Private Key.</span>
                             </span>
                         </span>
                         <i class="fa-solid fa-circle-check text-indigo-600 mt-0.5 h-5 w-5 hidden" id="icon-local"></i>
@@ -49,15 +59,15 @@
 
             <!-- Box cấu hình Server -->
             <div id="server-options-box" class="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                <label class="block text-sm font-semibold text-gray-700 mb-3">Tùy chọn Bảo vệ Khóa (Mã hóa)</label>
+                <label class="block text-sm font-semibold text-gray-700 mb-3">Tùy chọn Bảo vệ Khóa trên Server</label>
                 <div class="flex items-center space-x-6 mb-4">
                     <label class="flex items-center text-sm cursor-pointer">
                         <input type="radio" name="passphraseMode" value="auto" checked class="text-indigo-600 focus:ring-indigo-500 h-4 w-4 mr-2" onchange="togglePassphraseInput()">
-                        Tự động (Dùng Server Token)
+                        Server tự động mã hóa (Master Key)
                     </label>
                     <label class="flex items-center text-sm cursor-pointer">
                         <input type="radio" name="passphraseMode" value="custom" class="text-indigo-600 focus:ring-indigo-500 h-4 w-4 mr-2" onchange="togglePassphraseInput()">
-                        Tự đặt Passphrase cá nhân
+                        Tự đặt Passphrase (Zero-Knowledge)
                     </label>
                 </div>
 
@@ -66,15 +76,24 @@
                         <div class="flex">
                             <div class="flex-shrink-0"><i class="fa-solid fa-triangle-exclamation text-yellow-400"></i></div>
                             <div class="ml-3">
-                                <p class="text-sm text-yellow-700">Nếu quên Passphrase này, bạn sẽ mất vĩnh viễn khóa và không thể ký file. Hệ thống không thể khôi phục.</p>
+                                <p class="text-sm text-yellow-700">Nếu quên Passphrase này, bạn sẽ mất vĩnh viễn khóa. Hệ thống cũng không thể khôi phục giúp bạn!</p>
                             </div>
                         </div>
                     </div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-1">Nhập Passphrase của bạn</label>
-                    <input type="password" id="passphrase" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Nhập Passphrase</label>
+                            <input type="password" id="passphrase" minlength="6" placeholder="Mật khẩu mã hóa khóa" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Xác nhận lại Passphrase</label>
+                            <input type="password" id="confirmPassphrase" minlength="6" placeholder="Nhập lại mật khẩu" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+                        </div>
+                    </div>
                 </div>
                 
-                <p id="auto-passphrase-desc" class="text-sm text-gray-500 italic"><i class="fa-solid fa-shield-halved text-green-500"></i> Hệ thống sẽ tự động mã hóa bảo vệ khóa của bạn. Bạn không cần nhớ mật khẩu khi ký.</p>
+                <p id="auto-passphrase-desc" class="text-sm text-gray-500 italic mt-2"><i class="fa-solid fa-shield-halved text-green-500"></i> Hệ thống sử dụng KMS Master Key để tự động mã hóa bảo vệ khóa của bạn. Rất tiện lợi cho việc ký hàng loạt.</p>
             </div>
 
             <!-- Box cảnh báo Local -->
@@ -83,13 +102,14 @@
                     <div class="flex-shrink-0"><i class="fa-solid fa-download text-blue-500"></i></div>
                     <div class="ml-3">
                         <h3 class="text-sm font-bold text-blue-800">Tải File Private Key (.pem)</h3>
-                        <p class="text-sm text-blue-700 mt-1">Hệ thống sẽ tải file Private Key về máy tính của bạn ngay sau khi tạo. <b>Hãy cất giữ file này cẩn thận. Nếu mất, bạn sẽ không thể ký.</b></p>
+                        <p class="text-sm text-blue-700 mt-1">Hệ thống sẽ tải file Private Key về máy tính của bạn ngay sau khi tạo và <b>không lưu vào CSDL</b>. Hãy cất giữ file này cẩn thận!</p>
                     </div>
                 </div>
             </div>
 
-            <button type="submit" id="btn-generate" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition duration-200 shadow-md">
-                <i class="fa-solid fa-wand-magic-sparkles mr-2"></i> Tiến Hành Tạo Khóa
+            <!-- Nút submit -->
+            <button type="submit" id="btn-generate" class="w-full mt-6 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition duration-200 shadow-md">
+                <i class="fa-solid fa-wand-magic-sparkles mr-2"></i> Bắt Đầu Khởi Tạo Khóa
             </button>
         </form>
     </div>
@@ -126,25 +146,23 @@
         const container = document.getElementById('custom-passphrase-container');
         const desc = document.getElementById('auto-passphrase-desc');
         const input = document.getElementById('passphrase');
+        const confirmInput = document.getElementById('confirmPassphrase');
 
         if (mode === 'custom') {
             container.classList.remove('hidden');
             desc.classList.add('hidden');
             input.setAttribute('required', 'true');
+            confirmInput.setAttribute('required', 'true');
         } else {
             container.classList.add('hidden');
             desc.classList.remove('hidden');
             input.removeAttribute('required');
-            input.value = ''; // Xóa dữ liệu cũ
+            confirmInput.removeAttribute('required');
+            input.value = '';
+            confirmInput.value = '';
         }
     }
 
-    // Init UI state
-    document.addEventListener("DOMContentLoaded", () => {
-        document.getElementById('icon-server').style.display = 'block';
-    });
-
-    // Hàm phụ trợ: Tải file text (pem)
     function downloadTextFile(filename, content) {
         const element = document.createElement('a');
         element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(content));
@@ -159,61 +177,87 @@
     document.getElementById('key-form').addEventListener('submit', async (e) => {
         e.preventDefault();
         const btn = document.getElementById('btn-generate');
-        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i> Đang tính toán (RSA 2048)...';
-        btn.disabled = true;
-
         const storageType = document.querySelector('input[name="storageType"]:checked').value;
         const passphraseMode = document.querySelector('input[name="passphraseMode"]:checked')?.value;
         
         let passphrase = null;
         if (storageType === 'server' && passphraseMode === 'custom') {
             passphrase = document.getElementById('passphrase').value;
+            const confirmPassphrase = document.getElementById('confirmPassphrase').value;
+
+            if (passphrase !== confirmPassphrase) {
+                Swal.fire('Lỗi', 'Mật khẩu xác nhận không trùng khớp!', 'warning');
+                return;
+            }
         }
 
-        const body = {
-            key_name: document.getElementById('keyName').value,
-            storage_type: storageType,
-            passphrase: passphrase,
-            key_size: 2048
-        };
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i> Đang tính toán sinh khóa...';
+        btn.disabled = true;
+
+        const keyName = document.getElementById('keyName').value;
+        const algoSelection = document.getElementById('keyAlgorithm').value;
+        
+        // Tách thuật toán và size
+        let algorithm = 'RSA';
+        let keySize = 2048;
+        if (algoSelection === 'RSA_4096') {
+            keySize = 4096;
+        } else if (algoSelection === 'ECDSA_P256') {
+            algorithm = 'ECDSA';
+            keySize = 256;
+        }
 
         try {
-            // Lưu ý: Thay fetchAPI bằng hàm fetch của bạn nếu bạn đang custom
-            const response = await fetch('/keys/generate', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body)
-            });
+            // 1. TẠO KHÓA (Kích hoạt quá trình tự cấp CSR bên Backend luôn)
+            const keyBody = {
+                key_name: keyName,
+                storage_type: storageType,
+                passphrase: passphrase,
+                algorithm: algorithm,
+                key_size: keySize
+            };
             
-            if (!response.ok) throw new Error("Tạo khóa thất bại");
-            
-            const data = await response.json();
+            const keyData = await fetchAPI('/api/keys/', 'POST', keyBody);
 
-            // Nếu người dùng chọn lưu Local, trả về có raw_private_key -> Tải về ngay lập tức
-            if (storageType === 'local' && data.raw_private_key) {
-                const safeKeyName = body.key_name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-                downloadTextFile(`private_key_${safeKeyName}.pem`, data.raw_private_key);
+            // 2. CHẠY NGẦM YÊU CẦU CẤP CHỨNG CHỈ TỪ INTERNAL CA
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i> Đang yêu cầu cấp Chứng chỉ...';
+            
+            const certBody = {
+                cert_name: `Chứng chỉ của ${keyName}`,
+                key_id: keyData.id,
+                issuer: 'SecureSign Internal CA', // Mặc định chạy ngầm
+                subject: localStorage.getItem('username') || 'Người dùng hệ thống', // Lấy tên user
+                valid_days: 365,
+                passphrase: passphrase,
+                raw_private_key: storageType === 'local' ? keyData.raw_private_key : null
+            };
+            
+            await fetchAPI('/api/certificates/', 'POST', certBody);
+
+            // 3. XỬ LÝ KẾT QUẢ CHO NGƯỜI DÚNG
+            if (storageType === 'local' && keyData.raw_private_key) {
+                const safeKeyName = keyName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+                downloadTextFile(`private_key_${safeKeyName}.pem`, keyData.raw_private_key);
                 
                 Swal.fire({
                     icon: 'success',
-                    title: 'Đã tạo và tải Private Key!',
-                    text: 'File .pem đã được tải xuống. Hãy bảo mật file này!',
+                    title: 'Hoàn tất!',
+                    text: 'Hệ thống đã cấp chứng chỉ. File Private Key (.pem) đã được tải xuống máy bạn!',
                     confirmButtonColor: '#4f46e5'
                 }).then(() => window.location.href = '/sign');
             } else {
                 Swal.fire({
                     icon: 'success',
-                    title: 'Tạo khóa thành công!',
-                    text: 'Khóa đã được tạo và lưu trữ an toàn trên server.',
+                    title: 'Khởi tạo thành công!',
+                    text: 'Khóa và Chứng chỉ đã được liên kết tự động và mã hóa an toàn trên server.',
                     confirmButtonColor: '#4f46e5'
                 }).then(() => window.location.href = '/sign');
             }
 
         } catch (error) {
-            Swal.fire('Lỗi', 'Đã xảy ra lỗi khi tạo khóa.', 'error');
-            console.error(error);
+            Swal.fire('Lỗi', error.message || 'Đã xảy ra lỗi khi tạo khóa/chứng chỉ.', 'error');
         } finally {
-            btn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles mr-2"></i> Tiến Hành Tạo Khóa';
+            btn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles mr-2"></i> Bắt Đầu Khởi Tạo Khóa';
             btn.disabled = false;
         }
     });

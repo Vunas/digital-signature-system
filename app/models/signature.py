@@ -1,32 +1,51 @@
-from sqlalchemy import String, DateTime, ForeignKey, Text, func
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import (
+    Column,
+    Integer,
+    String,
+    Boolean,
+    DateTime,
+    ForeignKey,
+    LargeBinary,
+    Enum,
+    Text,
+)
+from sqlalchemy.sql import func
+from sqlalchemy.orm import relationship
+import enum
 from app.db.base import Base
-from datetime import datetime
+from .key import SignatureAlgo
+
+
+class HashAlgo(str, enum.Enum):
+    SHA_256 = "SHA-256"
+    SHA_512 = "SHA-512"
 
 
 class Signature(Base):
     __tablename__ = "signatures"
 
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    document_id: Mapped[int] = mapped_column(
-        ForeignKey("documents.id", ondelete="CASCADE"), nullable=False
+    id = Column(Integer, primary_key=True, index=True)
+    document_id = Column(
+        Integer, ForeignKey("documents.id", ondelete="CASCADE"), index=True
     )
-    key_id: Mapped[int] = mapped_column(
-        ForeignKey("keys.id", ondelete="CASCADE"), nullable=False
-    )
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    key_id = Column(Integer, ForeignKey("keys.id", ondelete="CASCADE"))
+    certificate_id = Column(Integer, ForeignKey("certificates.id"))
+    user_id = Column(Integer, ForeignKey("users.id"), index=True)
 
-    signature: Mapped[str] = mapped_column(Text, nullable=False)  # Chữ ký Base64
+    signature_value = Column(LargeBinary)
 
-    hash_algorithm: Mapped[str] = mapped_column(String(50), default="SHA-256")
-    signature_algorithm: Mapped[str] = mapped_column(String(50), default="RSA-PSS")
+    hash_algorithm = Column(Enum(HashAlgo), default=HashAlgo.SHA_256)
+    signature_algorithm = Column(Enum(SignatureAlgo), default=SignatureAlgo.RSA)
 
-    signed_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    visible_signature = Column(Boolean, default=True)
+    signer_name = Column(String(100))
+    signer_reason = Column(Text)
+    signer_location = Column(String(100))
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     # Relationships
     document = relationship("Document", back_populates="signatures")
-    key = relationship("Key", back_populates="signatures")
-    signer = relationship("User", back_populates="signatures")
-    verify_logs = relationship("VerifyLog", back_populates="signature")
+    timestamps = relationship(
+        "Timestamp", back_populates="signature", cascade="all, delete"
+    )

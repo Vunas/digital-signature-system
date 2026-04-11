@@ -1,53 +1,78 @@
 from sqlalchemy.orm import Session
-from app.models.key import Key
-from app.core.crypto import generate_rsa_keypair
-from app.core.encryption import encrypt_private_key
-from app.core.config import settings
-from typing import Tuple, Optional
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives import serialization
+import hashlib
+
+from app.schemas.key_schema import KeyCreate
+from app.repositories.key_repo import key_repo
+from app.services.crypto.aes_service import aes_service
+from app.models.key import KeyStorageType
 
 
-def create_user_keypair(
-    db: Session,
-    user_id: int,
-    key_name: str,
-    storage_type: str,
-    passphrase: Optional[str] = None,
-    key_size: int = 2048,
-) -> Tuple[Key, Optional[str]]:
-    """
-    Sinh cặp khóa RSA.
-    - Nếu local: Không lưu DB, trả raw_private_key về để tải.
-    - Nếu server: Mã hóa bằng Passphrase (hoặc Server Token nếu trống) rồi lưu DB.
-    """
-    # 1. Sinh cặp khóa RSA
-    private_pem, public_pem = generate_rsa_keypair(key_size=key_size)
+class KeyService:
+    def create_key(self, db: Session, user_id: int, key_data: KeyCreate):
+        # 1. Sinh cặp khóa RSA
+        private_key = rsa.generate_private_key(
+            public_exponent=65537, key_size=key_data.key_size
+        )
 
-    encrypted_private = None
-    raw_private_to_return = None
+        # Xuất Private Key gốc (không mã hóa) để dùng cho Local hoặc Auto Server
+        unencrypted_pem = private_key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=serialization.NoEncryption(),
+        )
 
-    # 2. Xử lý theo loại lưu trữ
-    if storage_type == "local":
-        # KHÔNG mã hóa, KHÔNG lưu DB. Chuẩn bị trả về dạng chuỗi cho Frontend tải file.
-        raw_private_to_return = private_pem.decode("utf-8")
-    else:
-        # Lưu Server
-        # Nếu user không nhập passphrase, dùng Server Master Key
-        actual_passphrase = passphrase if passphrase else settings.SERVER_MASTER_KEY
-        encrypted_private = encrypt_private_key(private_pem, actual_passphrase)
+        encrypted_priv_pem = b""
+        raw_private_key_to_return = None
 
-    # 3. Lưu vào DB
-    new_key = Key(
-        user_id=user_id,
-        key_name=key_name,
-        public_key=public_pem.decode("utf-8"),
-        private_key_encrypted=encrypted_private,  # Sẽ là None nếu lưu local
-        storage_type=storage_type,
-        key_size=key_size,
-        algorithm="RSA",
-    )
+        # 2. Xử lý Logic 3 trường hợp lưu trữ
+        if (
+            key_data.storage_type == "local"
+            or key_data.storage_type == KeyStorageType.local
+        ):
+            # KIỂU 3: LOCAL - Không lưu Private Key vào DB, trả về cho người dùng tải
+            raw_private_key_to_return = unencrypted_pem.decode("utf-8")
+            encrypted_priv_pem = b""
 
-    db.add(new_key)
-    db.commit()
-    db.refresh(new_key)
+        else:  # SERVER
+            if key_data.passphrase:
+                # KIỂU 2: SERVER ZERO-KNOWLEDGE - Mã hóa bằng Passphrase của User
+                encrypted_priv_pem = private_key.private_bytes(
+                    encoding=serialization.Encoding.PEM,
+                    format=serialization.PrivateFormat.PKCS8,
+                    encryption_algorithm=serialization.BestAvailableEncryption(
+                        key_data.passphrase.encode("utf-8")
+                    ),
+                )
+            else:
+                # KIỂU 1: SERVER AUTO - Mã hóa bằng AES Master Key của hệ thống
+                encrypted_priv_pem = aes_service.encrypt_key(unencrypted_pem)
 
-    return new_key, raw_private_to_return
+        # 3. Xuất Public Key và tính Fingerprint
+        pub_key_pem = private_key.public_key().public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo,
+        )
+        fingerprint = hashlib.sha256(pub_key_pem).hexdigest()[:16].upper()
+
+        # 4. Lưu Database
+        db_key = key_repo.create(
+            db=db,
+            user_id=user_id,
+            key_name=key_data.key_name,
+            public_key=pub_key_pem,
+            private_key_encrypted=encrypted_priv_pem,
+            key_size=key_data.key_size,
+            algorithm=key_data.algorithm,
+            storage_type=key_data.storage_type,
+            key_fingerprint=fingerprint,
+        )
+
+        # Đính kèm raw_private_key vào object response (chỉ có giá trị nếu là Local)
+        setattr(db_key, "raw_private_key", raw_private_key_to_return)
+
+        return db_key
+
+
+key_service = KeyService()

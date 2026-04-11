@@ -5,21 +5,20 @@
 {% block content %}
 <div class="max-w-7xl mx-auto space-y-8">
     
-    <!-- KHỐI 1: SUMMARY THỐNG KÊ -->
     <div>
         <h2 class="text-2xl font-bold text-gray-800 mb-4"><i class="fa-solid fa-chart-pie text-indigo-500 mr-2"></i> Tổng Quan Hệ Thống</h2>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex items-center">
                 <div class="p-4 bg-indigo-100 rounded-xl"><i class="fa-solid fa-key text-2xl text-indigo-600"></i></div>
                 <div class="ml-4">
-                    <p class="text-sm font-medium text-gray-500">Tổng Số Khóa Đã Tạo</p>
+                    <p class="text-sm font-medium text-gray-500">Tổng Số Khóa & Chứng Chỉ</p>
                     <p class="text-3xl font-bold text-gray-800" id="stat-keys">0</p>
                 </div>
             </div>
             <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex items-center">
                 <div class="p-4 bg-emerald-100 rounded-xl"><i class="fa-solid fa-file-pdf text-2xl text-emerald-600"></i></div>
                 <div class="ml-4">
-                    <p class="text-sm font-medium text-gray-500">Tài Liệu Đã Upload</p>
+                    <p class="text-sm font-medium text-gray-500">Tài Liệu Đã Tải Lên</p>
                     <p class="text-3xl font-bold text-gray-800" id="stat-docs">0</p>
                 </div>
             </div>
@@ -33,8 +32,7 @@
         </div>
     </div>
 
-    <!-- KHỐI 2: QUẢN LÝ KHÓA -->
-    <div class="bg-white shadow-lg rounded-2xl border border-gray-100 overflow-hidden">
+    <div class="bg-white shadow-lg rounded-2xl border border-gray-100 overflow-hidden mb-8">
         <div class="bg-gray-50 px-6 py-4 border-b border-gray-100 flex justify-between items-center">
             <h3 class="text-lg font-bold text-gray-800"><i class="fa-solid fa-key text-indigo-500 mr-2"></i> Quản Lý Khóa (Keys)</h3>
             <a href="/generate-key" class="text-sm bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition"><i class="fa-solid fa-plus mr-1"></i> Tạo Khóa Mới</a>
@@ -46,57 +44,52 @@
                         <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Tên Khóa / Thuật toán</th>
                         <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Lưu trữ</th>
                         <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Ngày tạo</th>
-                        <th class="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Hành động (Actions)</th>
+                        <th class="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Hành động</th>
                     </tr>
                 </thead>
                 <tbody id="table-keys" class="bg-white divide-y divide-gray-200">
-                    <!-- Javascript Data -->
-                </tbody>
+                    </tbody>
             </table>
         </div>
     </div>
 
-    <!-- KHỐI 3: QUẢN LÝ TÀI LIÊU -->
-    <div class="bg-white shadow-lg rounded-2xl border border-gray-100 overflow-hidden">
+    <div class="bg-white shadow-lg rounded-2xl border border-gray-100 overflow-hidden mb-8">
         <div class="bg-gray-50 px-6 py-4 border-b border-gray-100 flex justify-between items-center">
-            <h3 class="text-lg font-bold text-gray-800"><i class="fa-solid fa-folder-open text-emerald-500 mr-2"></i> Quản Lý Tài Liệu Gốc (Documents)</h3>
-            <a href="/sign" class="text-sm bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 transition"><i class="fa-solid fa-upload mr-1"></i> Ký File Mới</a>
+            <h3 class="text-lg font-bold text-gray-800"><i class="fa-solid fa-folder-open text-emerald-500 mr-2"></i> Quản Lý Tài Liệu PDF</h3>
+            <a href="/sign" class="text-sm bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 transition"><i class="fa-solid fa-upload mr-1"></i> Tải & Ký File</a>
         </div>
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                     <tr>
                         <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Tên File</th>
-                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Mã Hash (SHA-256)</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Trạng thái</th>
                         <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Kích thước</th>
                         <th class="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Hành động</th>
                     </tr>
                 </thead>
                 <tbody id="table-docs" class="bg-white divide-y divide-gray-200">
-                    <!-- Javascript Data -->
-                </tbody>
+                    </tbody>
             </table>
         </div>
     </div>
 
-    <!-- KHỐI 4: LỊCH SỬ CHỮ KÝ -->
     <div class="bg-white shadow-lg rounded-2xl border border-gray-100 overflow-hidden mb-8">
         <div class="bg-gray-50 px-6 py-4 border-b border-gray-100">
-            <h3 class="text-lg font-bold text-gray-800"><i class="fa-solid fa-signature text-blue-500 mr-2"></i> Lịch Sử Chữ Ký (Signatures)</h3>
+            <h3 class="text-lg font-bold text-gray-800"><i class="fa-solid fa-signature text-blue-500 mr-2"></i> Lịch Sử Chữ Ký Gần Đây</h3>
         </div>
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                     <tr>
-                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Tài liệu ký</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Tài liệu đã ký</th>
                         <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Khóa sử dụng</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Người ký (Hiển thị)</th>
                         <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Thời gian</th>
-                        <th class="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Hành động</th>
                     </tr>
                 </thead>
                 <tbody id="table-sigs" class="bg-white divide-y divide-gray-200">
-                    <!-- Javascript Data -->
-                </tbody>
+                    </tbody>
             </table>
         </div>
     </div>
@@ -106,15 +99,10 @@
 
 {% block scripts %}
 <script>
-    // Dữ liệu toàn cục
-    let globalData = { keys: [], docs: [], sigs: [] };
+    let globalData = null;
 
-    // ==========================================
-    // KHỞI TẠO DỮ LIỆU DASHBOARD
-    // ==========================================
     async function loadDashboard() {
         try {
-            // Thay '/dashboard-api/summary' bằng URL api thực tế của bạn
             const data = await fetchAPI('/dashboard-api/summary'); 
             globalData = data;
 
@@ -123,7 +111,7 @@
             document.getElementById('stat-docs').textContent = data.stats.total_docs;
             document.getElementById('stat-sigs').textContent = data.stats.total_sigs;
 
-            // 2. Render Keys
+            // 2. Render Keys (Đã khóa Private Key)
             const tbodyKeys = document.getElementById('table-keys');
             tbodyKeys.innerHTML = data.keys.map(k => `
                 <tr class="hover:bg-gray-50 transition">
@@ -133,69 +121,61 @@
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
                         <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${k.storage_type === 'server' ? 'bg-indigo-100 text-indigo-800' : 'bg-yellow-100 text-yellow-800'}">
-                            ${k.storage_type === 'server' ? 'Server' : 'Local (Thiết bị)'}
+                            ${k.storage_type === 'server' ? 'Lưu Server' : 'Local'}
                         </span>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${k.created_at}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <button onclick="viewPubKey(${k.id})" class="text-gray-500 hover:text-indigo-600 mx-1" title="Xem Public Key"><i class="fa-solid fa-eye"></i></button>
-                        <button onclick="downloadFile('public_key_${k.id}.pem', '${k.public_key.replace(/\n/g, '\\n')}')" class="text-gray-500 hover:text-emerald-600 mx-1" title="Tải Public Key"><i class="fa-solid fa-download"></i> Pub</button>
-                        ${k.storage_type === 'server' ? 
-                            `<button onclick="downloadFile('encrypted_private_${k.id}.txt', '${k.private_key_encrypted}')" class="text-gray-500 hover:text-red-600 mx-1" title="Tải Private Key (Đã mã hóa)"><i class="fa-solid fa-download"></i> Pri</button>` 
-                            : `<button disabled class="text-gray-300 mx-1 cursor-not-allowed" title="Lưu local không thể tải lại"><i class="fa-solid fa-download"></i> Pri</button>`
-                        }
-                        <button onclick="revokeKey(${k.id})" class="text-red-400 hover:text-red-600 mx-1 ml-3" title="Thu hồi khóa"><i class="fa-solid fa-trash-can"></i></button>
+                        <button onclick="viewPubKey(${k.id})" class="text-gray-500 hover:text-indigo-600 mx-2" title="Xem Public Key"><i class="fa-solid fa-eye"></i></button>
+                        <button onclick="downloadPubKey(${k.id})" class="text-gray-500 hover:text-emerald-600 mx-2" title="Tải Public Key"><i class="fa-solid fa-download"></i> Pub</button>
+                        
+                        <button disabled class="text-gray-300 mx-2 cursor-not-allowed" title="Bảo mật: Hệ thống chặn xuất Khóa Bí Mật để đảm bảo tính chống chối bỏ."><i class="fa-solid fa-lock text-red-300"></i> Pri</button>
                     </td>
                 </tr>
             `).join('');
 
-            // 3. Render Documents
+            // 3. Render Documents (Thêm nút tải tài liệu)
             const tbodyDocs = document.getElementById('table-docs');
-            tbodyDocs.innerHTML = data.documents.map(d => `
+            tbodyDocs.innerHTML = data.documents.map(d => {
+                let statusBadge = d.status === 'SIGNED' 
+                    ? `<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Đã Ký</span>`
+                    : `<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">Chưa Ký</span>`;
+                
+                return `
                 <tr class="hover:bg-gray-50 transition">
                     <td class="px-6 py-4 whitespace-nowrap">
-                        <div class="font-medium text-gray-900"><i class="fa-solid fa-file-pdf text-red-500 mr-1"></i> ${d.name}</div>
+                        <div class="font-medium text-gray-900">${d.name}</div>
+                        <div class="text-xs text-gray-400 font-mono" title="${d.hash}">Hash: ${d.hash.substring(0, 15)}...</div>
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-xs text-gray-500 font-mono" title="${d.hash}">
-                        ${d.hash.substring(0, 15)}...
-                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">${statusBadge}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${d.size} KB</td>
                     <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <a href="/dashboard-api/download-doc/${d.id}" class="text-gray-500 hover:text-blue-600 mx-2" title="Tải file PDF"><i class="fa-solid fa-cloud-arrow-down"></i> Tải</a>
-                        <a href="/sign" class="text-indigo-500 hover:text-indigo-700 mx-2"><i class="fa-solid fa-pen-nib"></i> Ký File</a>
-                        <a href="/verify" class="text-emerald-500 hover:text-emerald-700 mx-2"><i class="fa-solid fa-shield-check"></i> Xác Thực</a>
+                        <a href="/documents/${d.id}/download" target="_blank" class="text-blue-500 hover:text-blue-700 mx-2" title="Tải file PDF này về máy"><i class="fa-solid fa-cloud-arrow-down"></i> Tải PDF</a>
+                        <a href="/sign" class="text-indigo-500 hover:text-indigo-700 mx-2"><i class="fa-solid fa-pen-nib"></i> Tới trang ký</a>
                     </td>
                 </tr>
-            `).join('');
+            `}).join('');
 
             // 4. Render Signatures
             const tbodySigs = document.getElementById('table-sigs');
             tbodySigs.innerHTML = data.signatures.map(s => `
                 <tr class="hover:bg-gray-50 transition">
-                    <td class="px-6 py-4 whitespace-nowrap font-medium text-gray-900">${s.document_name}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><i class="fa-solid fa-key text-xs mr-1 text-indigo-400"></i> ${s.key_name}</td>
+                    <td class="px-6 py-4 whitespace-nowrap font-medium text-indigo-700"><i class="fa-solid fa-file-pdf mr-1 text-red-500"></i> ${s.document_name}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600"><i class="fa-solid fa-key text-xs mr-1 text-gray-400"></i> ${s.key_name}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 font-semibold">${s.signer}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${s.signed_at}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <button onclick="viewSig('${s.id}')" class="text-gray-500 hover:text-indigo-600 mx-2" title="Xem chuỗi Base64"><i class="fa-solid fa-eye"></i> Xem</button>
-                        <button onclick="downloadSigJSON('${s.id}')" class="text-blue-500 hover:text-blue-700 mx-2 font-bold" title="Tải file .sig chuẩn"><i class="fa-solid fa-download"></i> .SIG</button>
-                    </td>
                 </tr>
             `).join('');
 
         } catch (error) {
-            console.error("Lỗi tải dashboard:", error);
-            Swal.fire('Lỗi', 'Không thể tải dữ liệu Dashboard.', 'error');
+            console.error(error);
         }
     }
 
-    // Khởi chạy
-    document.addEventListener("DOMContentLoaded", loadDashboard);
-
     // ==========================================
-    // CÁC HÀM HỖ TRỢ ACTION (Làm việc trực tiếp trên RAM Trình Duyệt)
+    // CÁC HÀM XỬ LÝ SỰ KIỆN DOWNLOAD & VIEW (Của Khóa Công Khai)
     // ==========================================
 
-    // Tải file dạng Text bất kỳ (.pem, .txt)
     function downloadFile(filename, content) {
         const blob = new Blob([content], { type: 'text/plain' });
         const url = window.URL.createObjectURL(blob);
@@ -207,72 +187,81 @@
         document.body.removeChild(a);
     }
 
-    // Tải file .SIG theo chuẩn JSON của bạn
-    function downloadSigJSON(sigId) {
-        const sigData = globalData.signatures.find(s => s.id == sigId);
-        if(!sigData) return;
-
-        const sigObject = {
-            signature: sigData.signature_base64,
-            key_id: sigData.key_id,
-            signer: sigData.signer
-        };
-        
-        const content = JSON.stringify(sigObject, null, 2);
-        const cleanDocName = sigData.document_name.replace('.pdf', '');
-        
-        downloadFile(`${cleanDocName}_signature.sig`, content);
-        Swal.fire({
-            icon: 'success', title: 'Thành công', 
-            text: 'Đã tải file chữ ký (.sig) chứa thông tin Key ID để xác thực.',
-            timer: 2000, showConfirmButton: false
-        });
+    function downloadPubKey(keyId) {
+        const key = globalData.keys.find(k => k.id === keyId);
+        if (key) {
+            downloadFile(`public_key_${key.id}.pem`, key.public_key);
+            showToast('Đã tải Public Key xuống', 'success');
+        }
     }
 
-    // Xem Public Key trên Modal
     function viewPubKey(keyId) {
         const key = globalData.keys.find(k => k.id === keyId);
-        Swal.fire({
-            title: 'Khóa Công Khai (Public Key)',
-            html: `<textarea readonly class="w-full h-48 p-2 text-xs font-mono bg-gray-50 border rounded-lg resize-none outline-none">${key.public_key}</textarea>`,
-            width: 600,
-            confirmButtonText: 'Đóng',
-            confirmButtonColor: '#4f46e5'
-        });
+        if (key) {
+            Swal.fire({
+                title: 'Khóa Công Khai (Public Key)',
+                html: `<textarea readonly class="w-full h-48 p-3 text-xs font-mono bg-gray-50 border rounded-lg resize-none outline-none text-gray-700">${key.public_key}</textarea>`,
+                width: 600,
+                confirmButtonText: 'Đóng',
+                confirmButtonColor: '#4f46e5'
+            });
+        }
     }
 
-    // Xem chuỗi Chữ ký trên Modal
-    function viewSig(sigId) {
-        const sigData = globalData.signatures.find(s => s.id == sigId);
-        Swal.fire({
-            title: 'Chuỗi Chữ Ký (Base64)',
-            html: `
-                <p class="text-sm text-gray-500 mb-2 text-left">Thuật toán: <b>${sigData.algorithm}</b></p>
-                <textarea readonly class="w-full h-32 p-2 text-xs font-mono bg-indigo-50 border border-indigo-200 text-indigo-800 rounded-lg resize-none outline-none">${sigData.signature_base64}</textarea>
-            `,
-            width: 600,
-            confirmButtonText: 'Đóng',
-            confirmButtonColor: '#4f46e5'
-        });
-    }
-
-    // Thu hồi khóa (Chức năng mở rộng)
-    function revokeKey(keyId) {
-        Swal.fire({
-            title: 'Bạn chắc chắn?',
-            text: "Nếu xóa/thu hồi, bạn sẽ không thể ký file bằng khóa này nữa!",
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#d33',
-            cancelButtonColor: '#3085d6',
-            confirmButtonText: 'Vâng, thu hồi khóa!',
-            cancelButtonText: 'Hủy'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                // Tại đây bạn gọi API DELETE /keys/{id}
-                Swal.fire('Đã thu hồi!', 'Đây chỉ là demo giao diện.', 'success');
-            }
-        });
-    }
+    document.addEventListener("DOMContentLoaded", loadDashboard);
 </script>
 {% endblock %}
+```
+
+---
+
+### Bước 2: Bổ sung Endpoint tải File vào Backend
+
+Để nút "Tải PDF" ở trên hoạt động (đường dẫn `href="/documents/{d.id}/download"`), bạn cần thêm một Endpoint nhỏ vào file quản lý Document của bạn.
+
+Mở file `app/routers/document_router.py` (hoặc nơi bạn định nghĩa các route cho document) và dán thêm đoạn code sau vào cuối file:
+
+```python
+from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import FileResponse
+from sqlalchemy.orm import Session
+import os
+
+from app.core.dependencies import get_db, get_current_user
+from app.models.user import User
+from app.repositories.document_repo import document_repo
+
+# Đảm bảo router đã được khởi tạo: router = APIRouter(prefix="/documents", tags=["Documents"])
+
+@router.get("/{document_id}/download")
+def download_document(
+    document_id: int, 
+    db: Session = Depends(get_db), 
+    current_user: User = Depends(get_current_user)
+):
+    """
+    API Tải tài liệu về máy.
+    - Nếu tài liệu đã được ký, trả về bản đã ký (có nhúng PAdES).
+    - Nếu chưa ký, trả về bản nháp gốc.
+    """
+    doc = document_repo.get_by_id(db, document_id, current_user.id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Không tìm thấy tài liệu")
+
+    # Ưu tiên tải bản đã ký (nếu có), nếu chưa ký thì tải bản gốc
+    file_path = doc.signed_file_path if doc.status == 'SIGNED' else doc.original_file_path
+
+    if not file_path or not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="File vật lý không tồn tại trên hệ thống")
+
+    # Xác định tên file tải về (thêm đuôi _signed để dễ nhận diện nếu đã ký)
+    download_filename = doc.file_name
+    if doc.status == 'SIGNED' and not download_filename.endswith('_signed.pdf'):
+        download_filename = download_filename.replace('.pdf', '_signed.pdf')
+
+    # Dùng FileResponse của FastAPI để tự động streaming file về cho trình duyệt
+    return FileResponse(
+        path=file_path, 
+        filename=download_filename, 
+        media_type="application/pdf"
+    )

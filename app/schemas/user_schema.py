@@ -1,22 +1,27 @@
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict
 from datetime import datetime
 
 
-# Lớp cha chứa các field dùng chung
 class UserBase(BaseModel):
-    username: str = Field(..., min_length=3, max_length=50)
+    username: str
 
 
-# Dùng khi User đăng ký
 class UserCreate(UserBase):
-    password: str = Field(..., min_length=6, description="Mật khẩu dạng plain-text")
+    password: str
 
 
-# Dùng khi trả data về cho Client (TUYỆT ĐỐI KHÔNG CÓ PASSWORD)
+class UserLogin(UserBase):
+    password: str
+
+
 class UserResponse(UserBase):
     id: int
     is_active: bool
     created_at: datetime
 
-    # Giúp Pydantic tự động map dữ liệu từ SQLAlchemy Model
     model_config = ConfigDict(from_attributes=True)
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"

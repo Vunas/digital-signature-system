@@ -1,18 +1,42 @@
 import os
+import aiofiles
+from fastapi import UploadFile
+from pathlib import Path
+from datetime import datetime
+
+# Thư mục lưu trữ file
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+UPLOAD_DIR = BASE_DIR / "storage" / "uploads"
+SIGNED_DIR = BASE_DIR / "storage" / "signed"
+
+# Khởi tạo thư mục nếu chưa tồn tại
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+os.makedirs(SIGNED_DIR, exist_ok=True)
 
 
-def format_file_size(size_in_bytes: int) -> str:
-    """Đổi kích thước byte sang KB, MB để hiển thị lên UI cho đẹp."""
-    if size_in_bytes < 1024:
-        return f"{size_in_bytes} B"
-    elif size_in_bytes < 1024 * 1024:
-        return f"{size_in_bytes / 1024:.2f} KB"
-    else:
-        return f"{size_in_bytes / (1024 * 1024):.2f} MB"
+async def save_upload_file(upload_file: UploadFile, filename: str) -> str:
+    """
+    Lưu file PDF upload từ client xuống server an toàn bằng aiofiles (Async).
+    """
+    file_path = UPLOAD_DIR / filename
+    async with aiofiles.open(file_path, "wb") as out_file:
+        while content := await upload_file.read(1024 * 1024):  # Đọc từng chunk 1MB
+            await out_file.write(content)
+    return str(file_path)
 
 
-def is_valid_pdf(filename: str, mime_type: str) -> bool:
-    """Bảo mật: Chỉ cho phép upload file PDF."""
-    allowed_extensions = {".pdf"}
-    _, ext = os.path.splitext(filename.lower())
-    return ext in allowed_extensions and mime_type == "application/pdf"
+def get_signed_file_path(original_filename: str) -> str:
+    """
+    Trả về đường dẫn lưu file sau khi ký, đảm bảo tính duy nhất.
+    Ví dụ: hop_dong.pdf -> signed_hop_dong_20260410_214530.pdf
+    """
+    # Lấy thời gian hiện tại định dạng YYYYMMDD_HHMMSS
+    timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    # Tách tên file và phần mở rộng (.pdf)
+    name, ext = os.path.splitext(original_filename)
+
+    # Tạo tên file mới
+    new_filename = f"signed_{name}_{timestamp_str}{ext}"
+
+    return str(SIGNED_DIR / new_filename)

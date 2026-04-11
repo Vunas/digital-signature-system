@@ -4,16 +4,17 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
+import os
 
 from app.core.config import settings
-from app.core.middleware import LoggingMiddleware
-from app.db.database import engine
+from app.db.session import engine
 from app.db.base import Base
 
-# Import models để SQLAlchemy nhận diện và tạo bảng tự động
+# Import file middleware bạn đã upload trước đó
+from app.core.middleware import LoggingMiddleware
 
-# Import API Routers
-from app.routers import auth_router, key_router, sign_router, document_router, dashboard_router
+# Import API Routers đã viết
+from app.routers import key_router, certificate_router, verify_router, auth_router, document_router, dashboard_router, signature_router
 
 # 1. TỰ ĐỘNG TẠO BẢNG TRONG DATABASE
 # Lệnh này sẽ quét các models và tạo bảng trên PostgreSQL nếu chưa có
@@ -37,17 +38,25 @@ app.add_middleware(
 )
 
 # 4. CẤU HÌNH GIAO DIỆN (UI) VÀ TÀI NGUYÊN TĨNH
+# Tạo thư mục nếu chưa tồn tại để tránh lỗi crash
+os.makedirs("app/static/css", exist_ok=True)
+os.makedirs("app/static/js", exist_ok=True)
+os.makedirs("app/templates", exist_ok=True)
+
 # Phục vụ CSS, JS từ thư mục static
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
+
 # Khởi tạo Jinja2 engine để render HTML
 templates = Jinja2Templates(directory="app/templates")
 
 # 5. ĐĂNG KÝ CÁC API ROUTERS
 app.include_router(auth_router.router)
 app.include_router(key_router.router)
-app.include_router(sign_router.router)
+app.include_router(certificate_router.router)
+app.include_router(verify_router.router)
 app.include_router(document_router.router)
 app.include_router(dashboard_router.router)
+app.include_router(signature_router.router)
 
 # ==========================================
 # 6. CÁC ROUTES PHỤC VỤ GIAO DIỆN (FRONTEND)
@@ -92,4 +101,4 @@ async def verify_page(request: Request):
 
 # 7. KHỞI CHẠY SERVER BẰNG UVICORN
 if __name__ == "__main__":
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

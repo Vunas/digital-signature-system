@@ -11,6 +11,7 @@ body {
     border: 2px dashed #6366f1; /* Màu Indigo của Tailwind */
     transition: all 0.3s ease;
 }
+
 .drop-zone.dragover {
     background-color: #e0e7ff;
     border-color: #4f46e5;
@@ -31,6 +32,7 @@ body {
     -webkit-animation: spinner 1.5s linear infinite;
     animation: spinner 1.5s linear infinite;
 }
+
 @keyframes spinner {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }

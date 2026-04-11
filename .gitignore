@@ -39,6 +39,8 @@ venv/
 # =========================
 uploads/
 app/uploads/
+signed/
+app/signed/
 
 # =========================
 # Static build (nếu có)
@@ -78,3 +80,4 @@ config.json
 # Node (nếu có frontend)
 # =========================
 node_modules/
+

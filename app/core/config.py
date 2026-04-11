@@ -1,41 +1,31 @@
-from pydantic_settings import BaseSettings, SettingsConfigDict
-from functools import lru_cache
+from pydantic_settings import BaseSettings
+import os
 
 
 class Settings(BaseSettings):
-    """
-    Tách config giúp hệ thống linh hoạt và bảo mật.
-    Mọi cấu hình nhạy cảm sẽ được đọc từ file .env hoặc biến môi trường,
-    không bao giờ hard-code trực tiếp vào source code.
-    """
-
-    PROJECT_NAME: str = "Digital Signature Web App"
+    PROJECT_NAME: str = "Digital Signature PDF API"
     VERSION: str = "1.0.0"
 
-    # Database
-    DATABASE_URL: str
+    # Database Configuration (Sửa lại theo DB của bạn)
+    DATABASE_URL: str = os.getenv(
+        "DATABASE_URL",
+        "postgresql://postgres:password@localhost:5432/digital_signature_db",
+    )
 
-    # JWT & Security
-    SECRET_KEY: str  # Dùng để ký JWT Token
+    # JWT Authentication
+    SECRET_KEY: str = os.getenv("SECRET_KEY", "your-super-secret-jwt-key-change-me")
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
-    # Salt dùng để tăng cường độ khó khi mã hóa Private Key (KDF)
-    # Trong thực tế, nên tạo một chuỗi ngẫu nhiên lưu trong .env
-    ENCRYPTION_SALT: str = "super_secret_salt_for_digital_signature_2026"
-    SERVER_MASTER_KEY: str = "server-super-secret-master-token-change-in-production"
+    # AES Encryption Key (Dùng để mã hóa Private Key khi lưu xuống DB)
+    # Phải là base64url-encoded 32-byte key (tạo bằng: cryptography.fernet.Fernet.generate_key())
+    ENCRYPTION_KEY: str = os.getenv(
+        "ENCRYPTION_KEY", "uO12M9L4hN4b6s4mXqK_3jJ_n-pXGvL9QvO2zZqE2y0="
+    )
+    TSA_URL: str = os.getenv("TSA_URL", "http://timestamp.digicert.com")
 
-    # Chỉ định file env
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
-
-
-@lru_cache()
-def get_settings() -> Settings:
-    """
-    Sử dụng lru_cache để cache lại cấu hình, tránh việc đọc file .env
-    nhiều lần mỗi khi có request, giúp tăng hiệu năng cực hạn.
-    """
-    return Settings()
+    class Config:
+        env_file = ".env"
 
 
-settings = get_settings()
+settings = Settings()

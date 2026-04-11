@@ -1,47 +1,20 @@
-import base64
 from cryptography.fernet import Fernet
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-from app.core.config import settings
+from .config import settings
+
+# Fernet sử dụng AES-128 trong chế độ CBC
+cipher_suite = Fernet(settings.ENCRYPTION_KEY.encode())
 
 
-def _derive_key_from_passphrase(passphrase: str) -> bytes:
+def encrypt_private_key(private_key_bytes: bytes) -> bytes:
     """
-    🔥 ĐÂY LÀ PHẦN ĂN ĐIỂM:
-    Biến mật khẩu (passphrase) của người dùng thành một chìa khóa AES 256-bit an toàn
-    bằng thuật toán Key Derivation Function (PBKDF2).
+    Mã hóa Private Key trước khi lưu vào Database (cột private_key_encrypted).
+    Giải pháp an toàn cho việc lưu trữ 'server' storage_type.
     """
-    kdf = PBKDF2HMAC(
-        algorithm=hashes.SHA256(),
-        length=32,
-        salt=settings.ENCRYPTION_SALT.encode(),
-        iterations=480000,  # Số vòng lặp cực cao, chống brute-force
-    )
-    # Tạo ra chìa khóa base64 dùng cho thuật toán Fernet (AES)
-    return base64.urlsafe_b64encode(kdf.derive(passphrase.encode()))
+    return cipher_suite.encrypt(private_key_bytes)
 
 
-def encrypt_private_key(private_key_pem: bytes, passphrase: str) -> str:
+def decrypt_private_key(encrypted_private_key: bytes) -> bytes:
     """
-    Mã hóa Private Key bằng mật khẩu của người dùng trước khi lưu vào DB.
-    Nếu Hacker lấy được DB, họ chỉ thấy các ký tự rác (Encrypted blob).
+    Giải mã Private Key từ Database để sử dụng cho quá trình ký PDF.
     """
-    aes_key = _derive_key_from_passphrase(passphrase)
-    f = Fernet(aes_key)
-    encrypted_data = f.encrypt(private_key_pem)
-    return encrypted_data.decode("utf-8")
-
-
-def decrypt_private_key(encrypted_private_key: str, passphrase: str) -> bytes:
-    """
-    Giải mã Private Key trên RAM khi người dùng cần Ký văn bản.
-    Nhập sai Passphrase -> Báo lỗi InvalidToken.
-    """
-    aes_key = _derive_key_from_passphrase(passphrase)
-    f = Fernet(aes_key)
-    try:
-        decrypted_data = f.decrypt(encrypted_private_key.encode("utf-8"))
-        return decrypted_data
-    except Exception as e:
-        print(e)
-        raise ValueError("Passphrase không chính xác hoặc khóa đã bị hỏng!")
+    return cipher_suite.decrypt(encrypted_private_key)

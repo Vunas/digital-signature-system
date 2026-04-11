@@ -1,35 +1,39 @@
-from sqlalchemy import String, Integer, DateTime, ForeignKey, Text, func
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Enum, Text
+from sqlalchemy.sql import func
+from sqlalchemy.orm import relationship
+import enum
 from app.db.base import Base
-from datetime import datetime
+
+
+class DocumentStatus(str, enum.Enum):
+    UPLOADED = "UPLOADED"
+    SIGNED = "SIGNED"
+    VERIFIED = "VERIFIED"
+    INVALID = "INVALID"
 
 
 class Document(Base):
     __tablename__ = "documents"
 
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    user_id: Mapped[int] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"), nullable=False
-    )
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True)
 
-    file_name: Mapped[str] = mapped_column(String(255), nullable=False)
-    file_path: Mapped[str] = mapped_column(
-        Text, nullable=True
-    )  # Có thể null nếu làm Stateless
-    file_size: Mapped[int] = mapped_column(Integer, nullable=False)
-    mime_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    file_name = Column(String(255))
+    original_file_path = Column(Text)
+    signed_file_path = Column(Text)
 
-    file_hash: Mapped[str] = mapped_column(
-        Text, nullable=False, index=True
-    )  # Lưu SHA-256
+    file_size = Column(Integer)
+    mime_type = Column(String(50), default="application/pdf")
 
-    uploaded_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    file_hash = Column(Text, nullable=False)
+    signed_file_hash = Column(Text)
+
+    status = Column(Enum(DocumentStatus), default=DocumentStatus.UPLOADED)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     # Relationships
     owner = relationship("User", back_populates="documents")
     signatures = relationship(
-        "Signature", back_populates="document", cascade="all, delete-orphan"
+        "Signature", back_populates="document", cascade="all, delete"
     )
-    verify_logs = relationship("VerifyLog", back_populates="document")

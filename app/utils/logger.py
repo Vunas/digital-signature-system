@@ -16,15 +16,13 @@ console_handler = logging.StreamHandler(sys.stdout)
 console_handler.setFormatter(formatter)
 logger.addHandler(console_handler)
 
-# Lưu thêm log vào file để audit sau này
+# Lưu thêm log vào file để audit (Kiểm toán) sau này
 file_handler = logging.FileHandler("app_audit.log", encoding="utf-8")
 file_handler.setFormatter(formatter)
 logger.addHandler(file_handler)
 
 """
-Cách dùng ở các file khác:
-from app.core.logger import logger
-logger.info("User ID 1 vừa tạo chữ ký")
-logger.warning("Cảnh báo: Có người cố gắng nhập sai mật khẩu")
-logger.error("Lỗi hệ thống khi truy cập DB")
+Cách dùng:
+from utils.logger import logger
+logger.info("User ID 1 vừa upload file PDF")
 """
