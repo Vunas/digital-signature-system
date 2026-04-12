@@ -1,37 +1,73 @@
 // --- QUẢN LÝ API VÀ TOKEN ---
-const API_URL = ""; // Để trống vì FE và BE chạy chung host
+const API_URL = "";
 
-// Hàm gọi API tự động đính kèm Token
+let isRefreshing = false;
+let refreshSubscribers = [];
+
+function onRefreshed(isSuccess) {
+  refreshSubscribers.forEach((callback) => callback(isSuccess));
+  refreshSubscribers = [];
+}
+
 async function fetchAPI(
   endpoint,
   method = "GET",
   body = null,
   isFormData = false,
 ) {
-  const token = localStorage.getItem("access_token");
-
   const headers = {};
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
-  }
-
   if (!isFormData) {
     headers["Content-Type"] = "application/json";
   }
 
-  const options = { method, headers };
+  // QUAN TRỌNG: "same-origin" hoặc "include" để trình duyệt tự động đính kèm HttpOnly Cookies
+  const options = { method, headers, credentials: "same-origin" };
 
   if (body) {
     options.body = isFormData ? body : JSON.stringify(body);
   }
 
   try {
-    const response = await fetch(`${API_URL}${endpoint}`, options);
+    let response = await fetch(`${API_URL}${endpoint}`, options);
 
-    // Nếu token hết hạn (401), văng ra trang login
-    if (response.status === 401 && endpoint !== "/auth/login") {
-      logout();
-      return null;
+    // NẾU LỖI 401 VÀ KHÔNG PHẢI LÀ API LOGIN HAY REFRESH
+    if (response.status === 401 && !endpoint.includes("/auth/")) {
+      // Xếp hàng các request bị fail trong lúc đang chờ refresh
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          refreshSubscribers.push(async (isSuccess) => {
+            if (isSuccess) {
+              resolve(await fetchAPI(endpoint, method, body, isFormData));
+            } else {
+              reject(new Error("Phiên đăng nhập hết hạn"));
+            }
+          });
+        });
+      }
+
+      isRefreshing = true;
+      try {
+        // Gọi API refresh token
+        const refreshRes = await fetch(`${API_URL}/auth/refresh`, {
+          method: "POST",
+          credentials: "same-origin",
+        });
+
+        if (refreshRes.ok) {
+          isRefreshing = false;
+          onRefreshed(true);
+
+          // Thử gọi lại request ban đầu sau khi refresh thành công
+          response = await fetch(`${API_URL}${endpoint}`, options);
+        } else {
+          throw new Error("Refresh failed");
+        }
+      } catch (err) {
+        isRefreshing = false;
+        onRefreshed(false);
+        forceLogout();
+        return null;
+      }
     }
 
     const data = await response.json();
@@ -40,7 +76,6 @@ async function fetchAPI(
     }
     return data;
   } catch (error) {
-    // Hiện popup lỗi xịn xò
     Swal.fire({
       icon: "error",
       title: "Thất bại",
@@ -52,11 +87,19 @@ async function fetchAPI(
 }
 
 // --- HÀM TIỆN ÍCH UI ---
-function logout() {
-  localStorage.removeItem("access_token");
+async function forceLogout() {
+  // Gọi backend để xóa HttpOnly Cookies
+  try {
+    await fetch(`${API_URL}/auth/logout`, {
+      method: "POST",
+      credentials: "same-origin",
+    });
+  } catch (e) {}
+
   localStorage.removeItem("username");
   window.location.href = "/login";
 }
+window.logout = forceLogout;
 
 function showToast(message, icon = "success") {
   const Toast = Swal.mixin({
@@ -69,18 +112,17 @@ function showToast(message, icon = "success") {
   Toast.fire({ icon: icon, title: message });
 }
 
-// Kiểm tra đăng nhập khi vào trang (trừ login/register)
+// Kiểm tra khi vào trang
 document.addEventListener("DOMContentLoaded", () => {
+  const username = localStorage.getItem("username");
   const path = window.location.pathname;
-  const token = localStorage.getItem("access_token");
 
-  if (!token && path !== "/login" && path !== "/register") {
+  if (!username && path !== "/login" && path !== "/register") {
     window.location.href = "/login";
   }
 
-  // Đổ tên user lên header
   const usernameDisplay = document.getElementById("username-display");
-  if (usernameDisplay && localStorage.getItem("username")) {
-    usernameDisplay.textContent = localStorage.getItem("username");
+  if (usernameDisplay && username) {
+    usernameDisplay.textContent = username;
   }
 });

@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 import os
 import concurrent.futures
 
-from app.models.certificate import Certificate
+from app.models.certificate import Certificate, CertType
 
 
 class VerifyService:
@@ -32,11 +32,11 @@ class VerifyService:
             # 1. TRÍCH XUẤT ROOT CA VÀ INTERMEDIATE CA TỪ DB
             # ==========================================
             root_records = (
-                db.query(Certificate).filter(Certificate.cert_type == "root").all()
+                db.query(Certificate).filter(Certificate.cert_type == CertType.ROOT).all()
             )
             inter_records = (
                 db.query(Certificate)
-                .filter(Certificate.cert_type == "intermediate")
+                .filter(Certificate.cert_type == CertType.INTERMEDIATE)
                 .all()
             )
 

@@ -22,7 +22,7 @@ from app.db.base import Base
 class CertType(str, enum.Enum):
     ROOT = "root"
     INTERMEDIATE = "intermediate"
-    END_USER = "end_user"
+    END_ENTITY = "end_entity"
 
 
 # =========================
@@ -44,7 +44,9 @@ class Certificate(Base):
     issuer = Column(String(255))
     subject = Column(String(255))
 
-    cert_type = Column(Enum(CertType), default=CertType.END_USER)
+    cert_type = Column(Enum(CertType), default=CertType.END_ENTITY)
+    purpose = Column(String(50), default="document_signing")
+
     certificate_data = Column(LargeBinary, nullable=False)
     certificate_pem = Column(Text, nullable=True)
     valid_from = Column(DateTime(timezone=True))
@@ -65,7 +67,7 @@ class Certificate(Base):
         "CertificateChain",
         back_populates="certificate",
         cascade="all, delete-orphan",
-        lazy="selectin"
+        lazy="selectin",
     )
 
 
@@ -78,9 +80,7 @@ class CertificateChain(Base):
     id = Column(Integer, primary_key=True, index=True)
 
     certificate_id = Column(
-        Integer,
-        ForeignKey("certificates.id", ondelete="CASCADE"),
-        index=True
+        Integer, ForeignKey("certificates.id", ondelete="CASCADE"), index=True
     )
 
     # CA certificate (root/intermediate)
@@ -92,8 +92,4 @@ class CertificateChain(Base):
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    certificate = relationship(
-        "Certificate",
-        back_populates="chains",
-        lazy="selectin"
-    )
+    certificate = relationship("Certificate", back_populates="chains", lazy="selectin")

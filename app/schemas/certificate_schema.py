@@ -10,7 +10,7 @@ class CertificateCreate(BaseModel):
     issuer: str
     subject: str
     valid_days: int = 365
-    cert_type: Optional[CertType] = CertType.END_USER
+    cert_type: Optional[CertType] = CertType.END_ENTITY
     passphrase: Optional[str] = None
     raw_private_key: Optional[str] = None
 

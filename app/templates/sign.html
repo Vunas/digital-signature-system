@@ -3,77 +3,136 @@
 {% block title %}Ký Văn Bản - SecureSign{% endblock %}
 
 {% block content %}
-<div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-    <!-- Cột 1: Upload File -->
-    <div class="bg-white shadow-lg rounded-2xl p-6 border border-gray-100">
-        <h3 class="text-xl font-bold text-gray-800 mb-4"><i class="fa-solid fa-file-pdf text-red-500 mr-2"></i> Bước 1: Chọn File PDF</h3>
-        <div id="drop-zone" class="drop-zone flex flex-col items-center justify-center h-48 rounded-xl cursor-pointer bg-gray-50 hover:bg-gray-100">
-            <i class="fa-solid fa-cloud-arrow-up text-4xl text-indigo-400 mb-3"></i>
-            <p class="text-gray-600 font-medium">Kéo thả file PDF vào đây</p>
-            <input type="file" id="file-input" accept=".pdf" class="hidden">
-        </div>
-        <div id="file-info" class="hidden mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
-            <div class="flex items-center">
-                <i class="fa-solid fa-file-circle-check text-green-500 text-2xl mr-3"></i>
-                <div>
-                    <p id="file-name" class="font-semibold text-gray-800"></p>
-                    <p id="file-size" class="text-xs text-gray-500"></p>
-                </div>
-            </div>
-        </div>
-        
-        <div class="mt-6 bg-blue-50 p-4 rounded-lg border border-blue-100">
-            <h4 class="text-sm font-bold text-blue-800 mb-2"><i class="fa-solid fa-stamp text-blue-500 mr-1"></i> Tính năng nổi bật</h4>
-            <ul class="text-xs text-blue-700 space-y-1 ml-4 list-disc">
-                <li><b>Chữ ký hiển thị (Visible Signature):</b> Tự động đóng dấu mộc chứa thông tin chữ ký ở góc dưới cùng file PDF.</li>
-                <li><b>Timestamp Authority (TSA):</b> Gắn thời gian chuẩn quốc tế vào chữ ký chống chối bỏ. Fallback về Local time nếu mất mạng.</li>
-            </ul>
-        </div>
+<div class="max-w-6xl mx-auto">
+    <!-- Header Page -->
+    <div class="mb-8">
+        <h2 class="text-3xl font-extrabold text-slate-900 tracking-tight"><i class="fa-solid fa-pen-nib text-blue-600 mr-3"></i>Thực Hiện Ký Số PAdES</h2>
+        <p class="text-slate-500 mt-2 text-lg">Hệ thống sẽ nhúng chữ ký bảo mật và dấu mộc điện tử trực tiếp vào tài liệu của bạn.</p>
     </div>
 
-    <!-- Cột 2: Chọn Khóa & Ký -->
-    <div class="bg-white shadow-lg rounded-2xl p-6 border border-gray-100">
-        <h3 class="text-xl font-bold text-gray-800 mb-4"><i class="fa-solid fa-pen-nib text-indigo-500 mr-2"></i> Bước 2: Ký Số Nhúng (PAdES)</h3>
-        <form id="sign-form" class="space-y-5">
-            <input type="hidden" id="document-id">
-            
-            <!-- Chọn Khóa -->
-            <div>
-                <label class="block text-sm font-semibold text-gray-700 mb-1">Chọn Khóa Ký</label>
-                <select id="key-select" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500" placeholder="Tìm kiếm tên khóa..."></select>
-            </div>
-            
-            <!-- VÙNG BẢO MẬT (Hiển thị động dựa theo loại Khóa được chọn) -->
-            <div id="security-zone" class="hidden bg-gray-50 border border-gray-200 p-4 rounded-lg">
-                <div id="zone-passphrase" class="hidden">
-                    <label class="block text-sm font-bold text-red-700 mb-1"><i class="fa-solid fa-lock text-red-500 mr-1"></i> Nhập Passphrase bảo vệ khóa</label>
-                    <input type="password" id="key-passphrase" placeholder="Mật khẩu của bạn..." class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-red-500 focus:border-red-500">
-                    <p class="text-xs text-gray-500 mt-1">Khóa này được cấu hình Zero-Knowledge. Bạn cần nhập mật khẩu để giải mã ký tài liệu.</p>
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        
+        <!-- CỘT 1: CHỌN FILE (Chiếm 5 cột) -->
+        <div class="lg:col-span-5 flex flex-col space-y-6">
+            <div class="bg-white shadow-xl shadow-slate-200/40 rounded-2xl p-6 border border-slate-100 flex-grow flex flex-col">
+                <div class="flex items-center mb-4">
+                    <div class="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold mr-3">1</div>
+                    <h3 class="text-xl font-bold text-slate-800">Tài liệu cần ký</h3>
+                </div>
+
+                <!-- TABS CHUYỂN ĐỔI CHẾ ĐỘ FILE -->
+                <div class="flex space-x-1 bg-slate-100 p-1 rounded-xl mb-5">
+                    <button type="button" id="tab-upload" class="flex-1 py-2 text-sm font-bold rounded-lg bg-white text-blue-600 shadow-sm transition-all duration-200">
+                        <i class="fa-solid fa-cloud-arrow-up mr-1.5"></i>Tải lên mới
+                    </button>
+                    <button type="button" id="tab-select" class="flex-1 py-2 text-sm font-bold rounded-lg text-slate-500 hover:text-slate-700 transition-all duration-200">
+                        <i class="fa-solid fa-folder-open mr-1.5"></i>Chọn từ kho
+                    </button>
+                </div>
+
+                <!-- PANEL 1: UPLOAD FILE MỚI -->
+                <div id="panel-upload" class="flex-grow">
+                    <!-- Drop Zone -->
+                    <div id="drop-zone" class="drop-zone relative group flex flex-col items-center justify-center h-48 rounded-2xl cursor-pointer bg-slate-50 border-2 border-dashed border-slate-300 hover:bg-blue-50 hover:border-blue-400 transition-all duration-300 overflow-hidden">
+                        <div class="absolute inset-0 bg-blue-400 opacity-0 group-hover:opacity-5 transition-opacity"></div>
+                        <i class="fa-solid fa-file-arrow-up text-4xl text-blue-400 mb-3 group-hover:-translate-y-1 transition-transform duration-300"></i>
+                        <p class="text-slate-700 font-semibold mb-1">Nhấn hoặc kéo thả file vào đây</p>
+                        <p class="text-xs text-slate-400">Chỉ hỗ trợ .pdf (Tối đa 15MB)</p>
+                        <input type="file" id="file-input" accept=".pdf" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
+                    </div>
+
+                    <!-- File Selected Card (Hiển thị khi đã chọn file) -->
+                    <div id="file-info" class="hidden h-48 flex flex-col justify-center">
+                        <div class="bg-white border-2 border-emerald-400 rounded-2xl p-5 shadow-lg shadow-emerald-100 relative">
+                            <!-- Nút Xóa File -->
+                            <button type="button" id="btn-remove-file" class="absolute -top-3 -right-3 w-8 h-8 bg-white border border-slate-200 text-slate-400 hover:text-red-500 hover:border-red-200 hover:bg-red-50 rounded-full flex items-center justify-center shadow-sm transition-colors z-20 tooltip" title="Gỡ bỏ file">
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
+
+                            <div class="flex flex-col items-center text-center">
+                                <div class="w-14 h-14 bg-emerald-50 text-emerald-500 rounded-2xl flex items-center justify-center text-2xl mb-3 shadow-inner">
+                                    <i class="fa-solid fa-file-pdf"></i>
+                                </div>
+                                <p id="file-name" class="font-bold text-slate-800 w-full truncate px-4" title=""></p>
+                                <div class="flex items-center justify-center mt-2 space-x-2">
+                                    <span class="bg-slate-100 text-slate-600 px-2.5 py-1 rounded text-xs font-medium" id="file-size"></span>
+                                    <span class="bg-emerald-100 text-emerald-700 px-2.5 py-1 rounded text-xs font-semibold"><i class="fa-solid fa-check mr-1"></i> Sẵn sàng tải lên & ký</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PANEL 2: CHỌN FILE TỪ KHO ĐÃ TẢI LÊN -->
+                <div id="panel-select" class="hidden flex-grow flex flex-col justify-center min-h-[12rem]">
+                    <div class="bg-slate-50 p-5 rounded-2xl border border-slate-200">
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">Chọn tài liệu gốc (Chưa ký)</label>
+                        <select id="existing-doc-select" class="w-full" placeholder="Tìm kiếm tên tài liệu..."></select>
+                        <p class="text-xs text-slate-500 mt-3 flex items-start"><i class="fa-solid fa-lightbulb text-amber-500 mt-0.5 mr-1.5"></i> Chọn file đã upload trước đó giúp bạn bỏ qua bước tải file, ký lại cực nhanh.</p>
+                    </div>
                 </div>
                 
-                <div id="zone-local" class="hidden">
-                    <label class="block text-sm font-bold text-indigo-700 mb-1"><i class="fa-solid fa-key text-indigo-500 mr-1"></i> Chọn file Private Key (.pem)</label>
-                    <input type="file" id="local-key-file" accept=".pem" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
-                    <p class="text-xs text-gray-500 mt-1">Khóa này được lưu cục bộ. Hãy tải file Private Key của bạn lên để thực hiện ký.</p>
+                <div class="mt-6 bg-blue-50/50 p-4 rounded-xl border border-blue-100/50">
+                    <h4 class="text-sm font-bold text-blue-800 mb-2"><i class="fa-solid fa-stamp text-blue-500 mr-2"></i> Tính năng an toàn</h4>
+                    <ul class="text-xs text-blue-700/80 space-y-1.5 ml-1">
+                        <li class="flex items-start"><i class="fa-solid fa-check-circle text-emerald-500 mt-0.5 mr-2"></i> <span>Mọi thao tác đều sinh ra một file PDF mới chống ghi đè bản gốc.</span></li>
+                        <li class="flex items-start"><i class="fa-solid fa-check-circle text-emerald-500 mt-0.5 mr-2"></i> <span>Tự động đính kèm mộc chữ ký ở góc văn bản.</span></li>
+                    </ul>
                 </div>
             </div>
-            
-            <!-- Thông tin người ký hiển thị trên PDF -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-1">Người ký (Hiển thị mộc)</label>
-                    <input type="text" id="signer-name" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500">
-                </div>
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-1">Lý do ký</label>
-                    <input type="text" id="signer-reason" value="Xác nhận tài liệu" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500">
-                </div>
+        </div>
+
+        <!-- CỘT 2: CHỌN KHÓA & KÝ (Chiếm 7 cột) -->
+        <div class="lg:col-span-7 bg-white shadow-xl shadow-slate-200/40 rounded-2xl p-6 md:p-8 border border-slate-100">
+            <div class="flex items-center mb-6">
+                <div class="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold mr-3">2</div>
+                <h3 class="text-xl font-bold text-slate-800">Cấu hình Chữ ký</h3>
             </div>
 
-            <button type="submit" id="btn-sign" disabled class="w-full bg-gray-400 text-white font-bold py-3 px-4 rounded-lg transition duration-200 mt-4 cursor-not-allowed shadow-sm">
-                Vui lòng upload file trước
-            </button>
-        </form>
+            <form id="sign-form" class="space-y-6">
+                <!-- Chọn Khóa -->
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-2">Chọn Khóa Ký <span class="text-red-500">*</span></label>
+                    <select id="key-select" required class="w-full" placeholder="Tìm kiếm tên khóa..."></select>
+                </div>
+                
+                <!-- VÙNG BẢO MẬT (Hiển thị động dựa theo loại Khóa được chọn) -->
+                <div id="security-zone" class="hidden bg-slate-50 border border-slate-200 p-5 rounded-xl transition-all">
+                    
+                    <!-- Khóa Server: Nhập Passphrase -->
+                    <div id="zone-passphrase" class="hidden">
+                        <label class="block text-sm font-bold text-slate-700 mb-2"><i class="fa-solid fa-lock text-emerald-500 mr-1.5"></i> Xác thực Passphrase Khóa (Nếu có)</label>
+                        <input type="password" id="key-passphrase" placeholder="Nhập mật khẩu giải mã khóa (để trống nếu khóa không đặt pass)" class="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow">
+                        <p class="text-xs text-slate-500 mt-2 flex items-center"><i class="fa-solid fa-circle-info mr-1"></i> Khóa được giải mã trực tiếp trên RAM và hủy ngay sau khi ký xong.</p>
+                    </div>
+                    
+                    <!-- Khóa Local: Upload PEM file -->
+                    <div id="zone-local" class="hidden">
+                        <label class="block text-sm font-bold text-indigo-700 mb-2"><i class="fa-solid fa-key text-indigo-500 mr-1.5"></i> Nạp file Private Key (.pem)</label>
+                        <input type="file" id="local-key-file" accept=".pem" class="w-full text-sm text-slate-600 file:mr-4 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 transition-colors border border-slate-200 rounded-xl p-1 bg-white">
+                        <p class="text-xs text-slate-500 mt-2 flex items-center"><i class="fa-solid fa-triangle-exclamation text-amber-500 mr-1"></i> Khóa này lưu cục bộ ở máy bạn. Web chỉ đọc nội dung để ký và không lưu lại.</p>
+                    </div>
+                </div>
+                
+                <!-- Thông tin người ký hiển thị trên PDF -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5 pt-2">
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">Người ký (Hiển thị mộc) <span class="text-red-500">*</span></label>
+                        <input type="text" id="signer-name" required class="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">Lý do ký <span class="text-red-500">*</span></label>
+                        <input type="text" id="signer-reason" value="Xác nhận tài liệu" required class="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow">
+                    </div>
+                </div>
+
+                <div class="pt-4 border-t border-slate-100 mt-2">
+                    <button type="submit" id="btn-sign" disabled class="w-full bg-slate-200 text-slate-400 font-bold py-4 px-4 rounded-xl transition-all duration-300 cursor-not-allowed flex items-center justify-center text-lg">
+                        <i class="fa-solid fa-file-circle-xmark mr-2"></i> Chờ File PDF...
+                    </button>
+                </div>
+            </form>
+        </div>
     </div>
 </div>
 {% endblock %}
@@ -82,9 +141,26 @@
 <link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.css" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
 
+<style>
+    /* Custom TomSelect to match Tailwind */
+    .ts-control {
+        border-radius: 0.75rem !important;
+        padding: 0.75rem 1rem !important;
+        border-color: #cbd5e1 !important;
+        font-size: 0.875rem !important;
+    }
+    .ts-control.focus {
+        border-color: #3b82f6 !important;
+        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2) !important;
+    }
+</style>
+
 <script>
     let userKeys = [];
-    let tomSelectInstance = null;
+    let tomSelectKeyInstance = null;
+    let tomSelectDocInstance = null;
+    let selectedFileToUpload = null; 
+    let currentFileMode = 'upload'; // Trạng thái tab hiện tại ('upload' hoặc 'select')
 
     // Lấy danh sách Khóa
     async function loadKeys() {
@@ -92,21 +168,46 @@
             userKeys = await fetchAPI('/api/keys/');
             const select = document.getElementById('key-select');
             
-            select.innerHTML = '<option value="">-- Chọn Khóa --</option>';
+            select.innerHTML = '<option value="">-- Tìm hoặc chọn khóa --</option>';
             userKeys.forEach(k => { 
                 const storageLabel = k.storage_type === 'local' ? '[Local]' : '[Server]';
                 select.innerHTML += `<option value="${k.id}">${storageLabel} ${k.key_name}</option>`; 
             });
 
-            tomSelectInstance = new TomSelect("#key-select", {
+            tomSelectKeyInstance = new TomSelect("#key-select", {
                 create: false,
                 sortField: { field: "text", direction: "asc" },
-                placeholder: "Nhập tên để tìm kiếm khóa...",
+                placeholder: "Tìm kiếm khóa bằng tên...",
                 onChange: function(value) {
                     handleKeySelection(value);
                 }
             });
-        } catch (e) { console.error(e); }
+        } catch (e) { console.error("Lỗi tải danh sách khóa:", e); }
+    }
+
+    // Lấy danh sách Tài liệu từ Kho
+    async function loadDocuments() {
+        try {
+            // Lấy danh sách văn bản dựa vào Endpoint GET /documents/ đã có
+            const userDocs = await fetchAPI('/documents/');
+            const select = document.getElementById('existing-doc-select');
+            
+            select.innerHTML = '<option value="">-- Tìm hoặc chọn tài liệu --</option>';
+            userDocs.forEach(d => { 
+                // Có thể lọc chỉ lấy những file chưa ký, hoặc show tất cả
+                const badge = d.status === "SIGNED" ? "[Đã Ký]" : "[Bản Gốc]";
+                select.innerHTML += `<option value="${d.id}">${badge} ${d.name} (${d.size} KB)</option>`; 
+            });
+
+            tomSelectDocInstance = new TomSelect("#existing-doc-select", {
+                create: false,
+                sortField: { field: "text", direction: "asc" },
+                placeholder: "Tìm tài liệu đã tải lên...",
+                onChange: function(value) {
+                    updateSignButtonState();
+                }
+            });
+        } catch (e) { console.error("Lỗi tải danh sách tài liệu:", e); }
     }
     
     // Xử lý Giao diện khi User chọn Khóa
@@ -115,8 +216,6 @@
         const zonePass = document.getElementById('zone-passphrase');
         const zoneLocal = document.getElementById('zone-local');
         
-        // Reset require
-        document.getElementById('key-passphrase').removeAttribute('required');
         document.getElementById('local-key-file').removeAttribute('required');
         
         if (!keyId) {
@@ -131,83 +230,121 @@
             zoneLocal.classList.remove('hidden');
             zonePass.classList.add('hidden');
             document.getElementById('local-key-file').setAttribute('required', 'true');
-        } 
-        // Giả sử có một cờ trên DB báo là khóa này có dùng passphrase, hiện tại demo ta cho hiện ô nhập nếu người dùng muốn
-        // Nếu user tạo khóa bằng Server Auto thì bỏ trống ô này là hệ thống tự hiểu.
-        else {
+        } else {
             zoneMain.classList.remove('hidden');
             zonePass.classList.remove('hidden');
             zoneLocal.classList.add('hidden');
         }
     }
 
-    // Đặt tên mặc định theo username
-    document.getElementById('signer-name').value = localStorage.getItem('username') || "Người dùng SecureSign";
-    loadKeys();
+    // =====================================
+    // XỬ LÝ CHUYỂN ĐỔI TAB (TẢI LÊN MỚI vs CHỌN TỪ KHO)
+    // =====================================
+    const tabUploadBtn = document.getElementById('tab-upload');
+    const tabSelectBtn = document.getElementById('tab-select');
+    const panelUpload = document.getElementById('panel-upload');
+    const panelSelect = document.getElementById('panel-select');
 
-    const dropZone = document.getElementById('drop-zone');
-    const fileInput = document.getElementById('file-input');
+    tabUploadBtn.addEventListener('click', () => {
+        currentFileMode = 'upload';
+        
+        // CSS Tab 1
+        tabUploadBtn.classList.add('bg-white', 'text-blue-600', 'shadow-sm');
+        tabUploadBtn.classList.remove('text-slate-500');
+        // CSS Tab 2
+        tabSelectBtn.classList.remove('bg-white', 'text-blue-600', 'shadow-sm');
+        tabSelectBtn.classList.add('text-slate-500');
+
+        panelUpload.classList.remove('hidden');
+        panelSelect.classList.add('hidden');
+        updateSignButtonState();
+    });
+
+    tabSelectBtn.addEventListener('click', () => {
+        currentFileMode = 'select';
+        
+        // CSS Tab 2
+        tabSelectBtn.classList.add('bg-white', 'text-blue-600', 'shadow-sm');
+        tabSelectBtn.classList.remove('text-slate-500');
+        // CSS Tab 1
+        tabUploadBtn.classList.remove('bg-white', 'text-blue-600', 'shadow-sm');
+        tabUploadBtn.classList.add('text-slate-500');
+
+        panelSelect.classList.remove('hidden');
+        panelUpload.classList.add('hidden');
+        updateSignButtonState();
+    });
+
+
+    // =====================================
+    // XỬ LÝ NÚT KÝ (ON/OFF) DỰA THEO CHẾ ĐỘ
+    // =====================================
     const btnSign = document.getElementById('btn-sign');
 
-    dropZone.addEventListener('click', () => fileInput.click());
+    function updateSignButtonState() {
+        let isReady = false;
+        if (currentFileMode === 'upload' && selectedFileToUpload) {
+            isReady = true;
+        } else if (currentFileMode === 'select' && document.getElementById('existing-doc-select').value) {
+            isReady = true;
+        }
 
-    // Các sự kiện Kéo Thả
-    dropZone.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        dropZone.classList.add('bg-indigo-50', 'border-indigo-400', 'border-dashed', 'border-2');
+        if (isReady) {
+            btnSign.disabled = false;
+            btnSign.className = "w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-4 px-4 rounded-xl shadow-lg shadow-blue-500/30 transform transition-all duration-200 hover:-translate-y-1 flex items-center justify-center text-lg";
+            btnSign.innerHTML = '<i class="fa-solid fa-signature mr-2"></i> Thực Hiện Ký Nhúng';
+        } else {
+            btnSign.disabled = true;
+            btnSign.className = "w-full bg-slate-200 text-slate-400 font-bold py-4 px-4 rounded-xl transition-all duration-300 cursor-not-allowed flex items-center justify-center text-lg";
+            btnSign.innerHTML = '<i class="fa-solid fa-file-circle-xmark mr-2"></i> Chờ Chọn PDF...';
+        }
+    }
+
+
+    // =====================================
+    // XỬ LÝ KÉO THẢ FILE
+    // =====================================
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
+
+    function processSelectedFile(file) {
+        if (!file) return;
+
+        if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+            Swal.fire('Định dạng không hỗ trợ', 'Hệ thống chỉ hỗ trợ xử lý file PDF!', 'error');
+            return;
+        }
+        selectedFileToUpload = file;        
+        document.getElementById('file-name').textContent = file.name;
+        document.getElementById('file-name').title = file.name;
+        document.getElementById('file-size').textContent = (file.size / (1024 * 1024)).toFixed(2) + ' MB';
+        
+        dropZone.classList.add('hidden');
+        document.getElementById('file-info').classList.remove('hidden');
+
+        updateSignButtonState();
+    }
+
+    fileInput.addEventListener('change', (e) => {
+        if(e.target.files.length > 0) {
+            processSelectedFile(e.target.files[0]);
+            fileInput.value = '';
+        }
     });
 
-    dropZone.addEventListener('dragleave', (e) => {
-        e.preventDefault();
-        dropZone.classList.remove('bg-indigo-50', 'border-indigo-400', 'border-dashed', 'border-2');
-    });
-
+    dropZone.addEventListener('dragover', (e) => e.preventDefault());
     dropZone.addEventListener('drop', (e) => {
         e.preventDefault();
-        dropZone.classList.remove('bg-indigo-50', 'border-indigo-400', 'border-dashed', 'border-2');
-        if (e.dataTransfer.files.length > 0) {
-            fileInput.files = e.dataTransfer.files;
-            fileInput.dispatchEvent(new Event('change'));
-        }
+        if (e.dataTransfer.files.length > 0) processSelectedFile(e.dataTransfer.files[0]);
     });
 
-    // Upload file
-    fileInput.addEventListener('change', async (e) => {
-        if(e.target.files.length > 0) {
-            const file = e.target.files[0];
-            if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
-                Swal.fire('Lỗi định dạng', 'Vui lòng chỉ chọn file PDF hợp lệ!', 'error');
-                fileInput.value = ''; return;
-            }
-            
-            document.getElementById('file-name').textContent = file.name;
-            document.getElementById('file-size').textContent = (file.size / 1024).toFixed(2) + ' KB';
-            document.getElementById('file-info').classList.remove('hidden');
-            dropZone.classList.add('hidden');
-
-            const formData = new FormData();
-            formData.append('file', file);
-            
-            try {
-                btnSign.textContent = "Đang tải file lên...";
-                const docData = await fetchAPI('/documents/upload', 'POST', formData, true);
-                
-                document.getElementById('document-id').value = docData.id;
-                btnSign.disabled = false;
-                btnSign.className = "w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg shadow-md";
-                btnSign.innerHTML = '<i class="fa-solid fa-signature mr-2"></i> Thực Hiện Ký Số (Nhúng TSA)';
-            } catch (error) {
-                btnSign.textContent = "Vui lòng upload file trước";
-                btnSign.disabled = true;
-                btnSign.className = "w-full bg-gray-400 text-white font-bold py-3 px-4 rounded-lg mt-4 cursor-not-allowed";
-                document.getElementById('file-info').classList.add('hidden');
-                dropZone.classList.remove('hidden');
-                fileInput.value = '';
-            }
-        }
+    document.getElementById('btn-remove-file').addEventListener('click', () => {
+        selectedFileToUpload = null;
+        document.getElementById('file-info').classList.add('hidden');
+        dropZone.classList.remove('hidden');
+        updateSignButtonState();
     });
 
-    // Hàm đọc Raw File
     function readFileAsText(file) {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -217,51 +354,84 @@
         });
     }
 
-    // Thực hiện ký
+    // Khởi tạo trang
+    document.getElementById('signer-name').value = localStorage.getItem('username') || "Người dùng SecureSign";
+    loadKeys();
+    loadDocuments();
+
+    // =====================================
+    // XỬ LÝ SUBMIT CHÍNH
+    // =====================================
     document.getElementById('sign-form').addEventListener('submit', async (e) => {
         e.preventDefault();
         
+        let targetDocumentId = null;
+
+        // KIỂM TRA TRẠNG THÁI FILE TRƯỚC KHI KÝ
+        if (currentFileMode === 'upload') {
+            if (!selectedFileToUpload) {
+                return Swal.fire('Khoan đã', 'Vui lòng tải lên tài liệu PDF cần ký.', 'warning');
+            }
+        } else {
+            targetDocumentId = document.getElementById('existing-doc-select').value;
+            if (!targetDocumentId) {
+                return Swal.fire('Khoan đã', 'Vui lòng chọn tài liệu đã có trong kho.', 'warning');
+            }
+        }
+
         let rawKeyContent = null;
         const keyId = parseInt(document.getElementById('key-select').value);
         const selectedKey = userKeys.find(k => k.id === keyId);
 
-        // Đọc Raw File nếu là Local
         if (selectedKey.storage_type === 'local') {
             const keyFile = document.getElementById('local-key-file').files[0];
             if (!keyFile) return Swal.fire('Lỗi', 'Vui lòng tải lên file Private Key (.pem)', 'error');
             rawKeyContent = await readFileAsText(keyFile);
         }
 
-        const body = {
-            document_id: parseInt(document.getElementById('document-id').value),
-            key_id: keyId,
-            signer_name: document.getElementById('signer-name').value,
-            signer_reason: document.getElementById('signer-reason').value,
-            signer_location: "Việt Nam",
-            visible_signature: true,
-            passphrase: document.getElementById('key-passphrase').value || null,
-            raw_private_key: rawKeyContent
-        };
-
         try {
             btnSign.disabled = true;
-            btnSign.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i> Đang nhúng chữ ký & đóng dấu...';
             
-            await fetchAPI('/api/signatures/sign-pdf', 'POST', body);
+            // NẾU CHẾ ĐỘ UPLOAD: Tiền xử lý Upload file mới lên DB
+            if (currentFileMode === 'upload') {
+                btnSign.innerHTML = '<i class="fa-solid fa-cloud-arrow-up fa-bounce mr-2"></i> Đang tải file lên Server...';
+                btnSign.className = "w-full bg-indigo-500 text-white font-bold py-4 px-4 rounded-xl flex items-center justify-center text-lg shadow-inner";
+
+                const formUploadData = new FormData();
+                formUploadData.append('file', selectedFileToUpload);
+                const docData = await fetchAPI('/documents/upload', 'POST', formUploadData, true);
+                targetDocumentId = docData.id;
+            }
+
+            // TIẾN HÀNH KÝ
+            btnSign.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i> Đang tính toán & Nhúng chữ ký...';
+            btnSign.className = "w-full bg-indigo-600 text-white font-bold py-4 px-4 rounded-xl flex items-center justify-center text-lg shadow-inner";
+
+            const signBody = {
+                document_id: targetDocumentId,
+                key_id: keyId,
+                signer_name: document.getElementById('signer-name').value,
+                signer_reason: document.getElementById('signer-reason').value,
+                signer_location: "Việt Nam",
+                visible_signature: true,
+                passphrase: document.getElementById('key-passphrase').value || null,
+                raw_private_key: rawKeyContent
+            };
+            
+            await fetchAPI('/api/signatures/sign-pdf', 'POST', signBody);
             
             Swal.fire({
                 icon: 'success',
-                title: 'Đã ký thành công!',
+                title: 'Ký duyệt thành công!',
                 text: 'Chữ ký số và con dấu trực quan đã được nhúng vào file PDF.',
                 confirmButtonColor: '#4f46e5'
             }).then(() => { window.location.href = '/dashboard'; });
+
         } catch (error) {
-            btnSign.disabled = false;
-            btnSign.innerHTML = '<i class="fa-solid fa-signature mr-2"></i> Thực Hiện Ký Số (Nhúng TSA)';
-            
+            updateSignButtonState();
             Swal.fire({
                 icon: 'error',
-                title: 'Lỗi ký tài liệu',
+                title: 'Lỗi hệ thống',
                 text: error.message || 'Không thể thực hiện ký số. Vui lòng thử lại!',
                 confirmButtonColor: '#4f46e5'
             });

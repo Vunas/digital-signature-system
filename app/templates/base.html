@@ -7,6 +7,7 @@
       {% block title %}Hệ Thống Chữ Ký Số | SecureSign{% endblock %}
     </title>
 
+    <link rel="icon" href="/static/favicon.ico" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -49,10 +50,7 @@
             >
               <i class="fa-solid fa-file-signature text-lg"></i>
             </div>
-            <a
-              href="/dashboard"
-              class="font-bold text-xl tracking-tight text-slate-900"
-            >
+            <a href="/" class="font-bold text-xl tracking-tight text-slate-900">
               Secure<span class="text-blue-600">Sign</span>
             </a>
           </div>
@@ -127,19 +125,41 @@
       {% block content %} {% endblock %}
     </main>
 
-    <footer class="bg-white border-t border-gray-200 mt-auto">
+    <footer class="bg-white border-t border-slate-200 py-12 mt-auto">
       <div
-        class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center text-sm text-slate-500"
+        class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center"
       >
-        <p class="font-medium text-slate-600">
-          Đồ án An Ninh Mạng Máy Tính &copy; 2026.
-        </p>
-        <div class="mt-4 md:mt-0 flex items-center space-x-4">
-          <span
-            >Xây dựng với
-            <span class="font-medium text-slate-700">FastAPI</span> &
-            <span class="font-medium text-slate-700">PyHanko</span></span
+        <div class="flex items-center space-x-3 mb-6 md:mb-0">
+          <div
+            class="flex items-center space-x-3 group cursor-pointer"
+            onclick="window.scrollTo(0, 0)"
           >
+            <div
+              class="bg-gradient-to-tr from-blue-600 to-indigo-600 text-white p-2.5 rounded-xl shadow-lg shadow-blue-500/30 group-hover:shadow-blue-500/50 transition-all duration-300"
+            >
+              <i class="fa-solid fa-file-signature text-xl"></i>
+            </div>
+            <span class="font-extrabold text-2xl tracking-tight text-slate-900">
+              Secure<span class="text-blue-600">Sign</span>
+            </span>
+          </div>
+        </div>
+
+        <p
+          class="text-sm text-slate-500 font-medium text-center md:text-left mb-6 md:mb-0"
+        >
+          &copy; 2026 by
+          <span class="font-semibold text-gray-900">SecureSign</span>. All
+          rights reserved.
+        </p>
+
+        <div class="flex space-x-5">
+          <a
+            href="https://github.com/Vunas/digital-signature-system"
+            class="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-blue-600 hover:text-white transition-all"
+          >
+            <i class="fa-brands fa-github text-lg"></i>
+          </a>
         </div>
       </div>
     </footer>

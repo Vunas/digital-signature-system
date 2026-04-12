@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
@@ -10,11 +10,16 @@ from app.core.config import settings
 from app.db.session import engine
 from app.db.base import Base
 
-# Import file middleware bạn đã upload trước đó
 from app.core.middleware import LoggingMiddleware
-
-# Import API Routers đã viết
-from app.routers import key_router, certificate_router, verify_router, auth_router, document_router, dashboard_router, signature_router
+from app.routers import (
+    key_router,
+    certificate_router,
+    verify_router,
+    auth_router,
+    document_router,
+    dashboard_router,
+    signature_router,
+)
 
 # 1. TỰ ĐỘNG TẠO BẢNG TRONG DATABASE
 # Lệnh này sẽ quét các models và tạo bảng trên PostgreSQL nếu chưa có
@@ -24,7 +29,7 @@ Base.metadata.create_all(bind=engine)
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
-    description="Hệ thống Chữ ký số - Đồ án An Ninh Mạng",
+    description="Hệ thống Chữ ký số - Demo",
 )
 
 # 3. ĐĂNG KÝ MIDDLEWARE (Bảo mật CORS & Ghi Log)
@@ -64,9 +69,9 @@ app.include_router(signature_router.router)
 
 
 @app.get("/", response_class=HTMLResponse, include_in_schema=False)
-async def root():
-    """Điều hướng mặc định về trang đăng nhập"""
-    return RedirectResponse(url="/login")
+async def root(request: Request):
+    """Trang Chủ giới thiệu (Landing Page)"""
+    return templates.TemplateResponse("index.html", {"request": request})
 
 
 @app.get("/login", response_class=HTMLResponse, include_in_schema=False)
@@ -89,7 +94,6 @@ async def generate_key_page(request: Request):
 
 @app.get("/sign", response_class=HTMLResponse, include_in_schema=False)
 async def sign_page(request: Request):
-    """Trang Ký Văn Bản (File bạn vừa đang xem)"""
     return templates.TemplateResponse("sign.html", {"request": request})
 
 

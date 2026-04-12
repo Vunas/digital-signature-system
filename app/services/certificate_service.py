@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 from cryptography import x509
-from cryptography.x509.oid import NameOID
+from cryptography.x509.oid import NameOID, ExtendedKeyUsageOID
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.serialization import (
     load_pem_private_key,
@@ -13,7 +13,7 @@ from app.schemas.certificate_schema import CertificateCreate
 from app.repositories.certificate_repo import certificate_repo
 from app.repositories.key_repo import key_repo
 from app.services.crypto.aes_service import aes_service
-from app.models.certificate import Certificate  # Import thêm model Certificate
+from app.models.certificate import Certificate, CertType
 
 
 class CertificateService:
@@ -108,18 +108,14 @@ class CertificateService:
     def create_signed_cert(
         self, db: Session, user_id: int, cert_data: CertificateCreate, issuer_cert
     ):
-        """Tạo chứng chỉ con (Intermediate CA hoặc End-User) được ký bởi CA cấp trên."""
-        # Lấy khóa Public của User cần tạo chứng chỉ
+        """Tạo chứng chỉ con (Intermediate CA, End-User, hoặc TSA) được ký bởi CA cấp trên."""
         user_key_record = key_repo.get_by_id(db, cert_data.key_id, user_id)
         user_public_key = load_pem_public_key(user_key_record.public_key)
 
-        # Lấy khóa Private của Thằng Cấp Trên (Issuer) để đóng mộc
         issuer_key_record = key_repo.get_by_id(
             db, issuer_cert.key_id, issuer_cert.user_id
         )
         issuer_private_key = self._get_private_key(issuer_key_record)
-
-        # Trích xuất Subject của thằng cấp trên để làm Issuer cho thằng con
         issuer_x509 = x509.load_der_x509_certificate(issuer_cert.certificate_data)
 
         subject = x509.Name(
@@ -129,13 +125,13 @@ class CertificateService:
             ]
         )
 
-        # Xác định xem thằng con này là CA (Intermediate) hay chỉ là User thường
         is_ca = True if cert_data.cert_type == "intermediate" else False
+        is_tsa = True if cert_data.cert_type == "tsa" else False
 
         cert_builder = (
             x509.CertificateBuilder()
             .subject_name(subject)
-            .issuer_name(issuer_x509.subject)  # Kế thừa Issuer từ CA cấp trên
+            .issuer_name(issuer_x509.subject)
             .public_key(user_public_key)
             .serial_number(x509.random_serial_number())
             .not_valid_before(datetime.datetime.utcnow())
@@ -149,8 +145,8 @@ class CertificateService:
             )
         )
 
-        # Nếu là User thì chỉ được dùng để ký số (Digital Signature), không được quyền cấp chứng chỉ con (key_cert_sign)
-        if not is_ca:
+        # 1. NẾU LÀ USER THƯỜNG
+        if not is_ca and not is_tsa:
             cert_builder = cert_builder.add_extension(
                 x509.KeyUsage(
                     digital_signature=True,
@@ -166,7 +162,29 @@ class CertificateService:
                 critical=True,
             )
 
-        # CA CẤP TRÊN DÙNG KHÓA PRIVATE CỦA NÓ ĐỂ KÝ CHO CHỨNG CHỈ NÀY
+        # 2. NẾU LÀ INTERNAL TSA (TIME STAMPING AUTHORITY)
+        if is_tsa:
+            # Bắt buộc 1: KeyUsage chỉ được phép Digital Signature hoặc Non Repudiation
+            cert_builder = cert_builder.add_extension(
+                x509.KeyUsage(
+                    digital_signature=True,
+                    content_commitment=True,
+                    key_encipherment=False,
+                    data_encipherment=False,
+                    key_agreement=False,
+                    key_cert_sign=False,
+                    crl_sign=False,
+                    encipher_only=False,
+                    decipher_only=False,
+                ),
+                critical=True,
+            )
+            # Bắt buộc 2: Extended Key Usage -> Time Stamping (Để Adobe nhận diện đây là TSA)
+            cert_builder = cert_builder.add_extension(
+                x509.ExtendedKeyUsage([ExtendedKeyUsageOID.TIME_STAMPING]),
+                critical=True,
+            )
+
         certificate = cert_builder.sign(issuer_private_key, hashes.SHA256())
 
         return certificate_repo.create(
@@ -187,16 +205,29 @@ class CertificateService:
         )
 
     def get_root_ca(self, db: Session):
-        """Lấy Root CA hiện tại của hệ thống"""
         return db.query(Certificate).filter(Certificate.cert_type == "root").first()
 
     def get_intermediate_ca(self, db: Session):
-        """Lấy Intermediate CA hiện tại của hệ thống"""
         return (
             db.query(Certificate)
             .filter(Certificate.cert_type == "intermediate")
             .first()
         )
+
+    def get_internal_tsa(self, db: Session):
+        """Lấy Chứng chỉ và Khóa của Internal TSA"""
+        tsa_cert = (
+            db.query(Certificate)
+            .filter(
+                Certificate.cert_type == CertType.END_ENTITY,
+                Certificate.purpose == "timestamping",
+            )
+            .first()
+        )
+        if not tsa_cert:
+            return None, None
+        tsa_key = key_repo.get_by_id(db, tsa_cert.key_id, tsa_cert.user_id)
+        return tsa_cert, tsa_key
 
 
 certificate_service = CertificateService()

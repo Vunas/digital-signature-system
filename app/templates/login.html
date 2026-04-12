@@ -74,7 +74,7 @@
 
         <!-- Footer -->
         <p class="text-xs text-gray-400 text-center mt-6">
-            © 2026 SecureSign • Đồ án An Ninh Mạng
+            © 2026 SecureSign • Demo
         </p>
     </div>
 
@@ -94,14 +94,20 @@
                 const res = await fetch('/auth/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    // QUAN TRỌNG: Thêm credentials: 'same-origin' để trình duyệt nhận và gửi HttpOnly Cookie
+                    credentials: 'same-origin',
                     body: formData.toString()
                 });
 
                 const data = await res.json();
 
                 if (res.ok) {
-                    localStorage.setItem('access_token', data.access_token);
-                    localStorage.setItem('username', document.getElementById('username').value);
+                    // Đã bỏ dòng localStorage.setItem('access_token', ...);
+                    // Vì Backend đã tự động set 2 HttpOnly Cookie (access_token và refresh_token) 
+                    // Trình duyệt sẽ tự động quản lý các token này và giấu khỏi JavaScript.
+                    
+                    // Chỉ lưu username để hiển thị lên Header của UI
+                    localStorage.setItem('username', data.username || document.getElementById('username').value);
 
                     window.location.href = '/dashboard';
                 } else {

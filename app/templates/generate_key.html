@@ -22,7 +22,6 @@
                     <select id="keyAlgorithm" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 text-sm">
                         <option value="RSA_2048">RSA 2048-bit (Chuẩn mực, khuyên dùng)</option>
                         <option value="RSA_4096">RSA 4096-bit (Bảo mật tối đa)</option>
-                        <option value="ECDSA_P256">ECDSA P-256 (Nhanh, kích thước nhỏ)</option>
                     </select>
                 </div>
             </div>
@@ -202,11 +201,7 @@
         let keySize = 2048;
         if (algoSelection === 'RSA_4096') {
             keySize = 4096;
-        } else if (algoSelection === 'ECDSA_P256') {
-            algorithm = 'ECDSA';
-            keySize = 256;
-        }
-
+        } 
         try {
             // 1. TẠO KHÓA (Kích hoạt quá trình tự cấp CSR bên Backend luôn)
             const keyBody = {
