@@ -196,7 +196,7 @@
             userDocs.forEach(d => { 
                 // Có thể lọc chỉ lấy những file chưa ký, hoặc show tất cả
                 const badge = d.status === "SIGNED" ? "[Đã Ký]" : "[Bản Gốc]";
-                select.innerHTML += `<option value="${d.id}">${badge} ${d.name} (${d.size} KB)</option>`; 
+                select.innerHTML += `<option value="${d.id}">${badge} ${d.file_name} (${d.file_size} KB)</option>`; 
             });
 
             tomSelectDocInstance = new TomSelect("#existing-doc-select", {

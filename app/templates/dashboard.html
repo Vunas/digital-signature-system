@@ -157,11 +157,7 @@ endblock %} {% block content %}
             >
               Tên Tài Liệu
             </th>
-            <th
-              class="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider"
-            >
-              Trạng thái
-            </th>
+
             <th
               class="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider"
             >
@@ -255,32 +251,17 @@ endblock %} {% block content %}
       } else {
         tbodyDocs.innerHTML = data.documents
           .map((d) => {
-            // Logic Badge Trạng Thái
-            const isSigned = d.signed_file_path !== null;
-            const statusBadge = isSigned
-              ? `<span class="px-3 py-1 inline-flex text-xs leading-5 font-bold rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 shadow-sm"><i class="fa-solid fa-shield-check mt-0.5 mr-1.5"></i> Đã Ký (PAdES)</span>`
-              : `<span class="px-3 py-1 inline-flex text-xs leading-5 font-bold rounded-full bg-slate-100 text-slate-600 border border-slate-200 shadow-sm"><i class="fa-solid fa-clock mt-0.5 mr-1.5"></i> Chờ Ký</span>`;
-
             // Logic Nút Action Chuyên Nghiệp (Sử dụng hàm onclick thay vì href)
-            let actionButtons = "";
-            if (isSigned) {
-              actionButtons = `
-                            <button onclick="downloadDocument(${d.id}, '${d.name}', true)" class="inline-flex items-center justify-center px-4 py-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-600 hover:text-white rounded-lg transition-all duration-200 text-sm font-bold border border-emerald-200 hover:border-transparent shadow-sm" title="Tải về bản PDF đã được nhúng chữ ký số an toàn">
-                                <i class="fa-solid fa-file-shield mr-2"></i> Bản Đã Ký
-                            </button>
-                        `;
-            } else {
-              actionButtons = `
+            let actionButtons = `
                             <div class="flex items-center justify-end space-x-2">
                                 <button onclick="downloadDocument(${d.id}, '${d.name}', false)" class="inline-flex items-center justify-center px-3 py-2 bg-white text-slate-600 hover:bg-slate-50 rounded-lg transition-all duration-200 text-xs font-semibold border border-slate-200 shadow-sm" title="Tải tài liệu nháp ban đầu">
                                     <i class="fa-solid fa-download mr-1.5"></i> Bản Gốc
                                 </button>
                                 <a href="/sign" class="inline-flex items-center justify-center px-4 py-2 bg-blue-50 text-blue-700 hover:bg-blue-600 hover:text-white rounded-lg transition-all duration-200 text-sm font-bold border border-blue-200 hover:border-transparent shadow-sm" title="Mang tài liệu này đi ký điện tử">
-                                    <i class="fa-solid fa-pen-nib mr-2"></i> Ký Ngay
+                                    <i class="fa-solid fa-pen-nib mr-2"></i> Ký Lại
                                 </a>
                             </div>
                         `;
-            }
 
             return `
                     <tr class="hover:bg-slate-50/50 transition-colors group">
@@ -293,7 +274,6 @@ endblock %} {% block content %}
                                 </div>
                             </div>
                         </td>
-                        <td class="px-6 py-5 whitespace-nowrap">${statusBadge}</td>
                         <td class="px-6 py-5 whitespace-nowrap text-sm font-medium text-slate-500">${d.size} KB</td>
                         <td class="px-6 py-5 whitespace-nowrap text-right">
                             ${actionButtons}
@@ -403,10 +383,13 @@ endblock %} {% block content %}
       }
 
       // Gọi API Fetch để lấy Blob
-      const response = await fetch(`/documents/${docId}/download?is_signed=${isSigned}`, {
-        method: "GET",
-        headers: headers,
-      });
+      const response = await fetch(
+        `/documents/${docId}/download?is_signed=${isSigned}`,
+        {
+          method: "GET",
+          headers: headers,
+        },
+      );
 
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));

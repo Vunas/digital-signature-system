@@ -1,7 +1,8 @@
 import os
-import tempfile  # Thêm thư viện này
+import tempfile
 import requests
 import logging
+from datetime import datetime
 
 from sqlalchemy.orm import Session
 from cryptography.hazmat.primitives.serialization import load_pem_private_key
@@ -30,7 +31,7 @@ from app.utils.file_utils import (
 
 class SignService:
     def sign_pdf(self, db: Session, user_id: int, sign_data: SignatureCreate):
-        """Thực hiện nhúng chữ ký số chuẩn PAdES vào tệp PDF trên Cloud."""
+        """Thực hiện nhúng chữ ký số chuẩn PAdES vào tệp PDF, hỗ trợ ký bồi (nhiều chữ ký)."""
 
         # 1. Lấy thông tin Document, Key, Certificate từ DB
         doc = document_repo.get_by_id(db, sign_data.document_id, user_id)
@@ -40,8 +41,15 @@ class SignService:
         if not doc or not key_record or not cert_record:
             raise ValueError("Dữ liệu không hợp lệ hoặc thiếu chứng chỉ.")
 
-        # Đường dẫn trên Cloud Supabase
-        input_db_path = doc.original_file_path
+        # TỰ ĐỘNG CHỌN FILE GỐC ĐỂ KÝ TIẾP
+        # Nếu tài liệu đã có chữ ký, lấy file đã ký làm đầu vào để ký chồng lên
+        input_db_path = getattr(doc, "signed_path", None) or getattr(
+            doc, "signed_file_path", None
+        )
+        if not input_db_path:
+            input_db_path = doc.original_file_path
+
+        # Sinh đường dẫn lưu file đầu ra
         output_db_path = get_signed_file_path(doc.file_name, input_db_path)
 
         # 2. Chuẩn bị Cryptography Objects từ DB
@@ -130,12 +138,11 @@ class SignService:
                 timestamper = None
 
         # 5. DOWNLOAD - KÝ - UPLOAD DÙNG TEMP FILE
-        # Tạo 2 file tạm trên server để pyHanko có thể thao tác vật lý
         tmp_in = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
         tmp_out = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
 
         try:
-            # 5.1 Tải file từ Supabase xuống file tạm
+            # 5.1 Tải file thông minh (từ Supabase hoặc Local)
             file_bytes = get_file_content(input_db_path)
             tmp_in.write(file_bytes)
             tmp_in.flush()
@@ -149,8 +156,12 @@ class SignService:
             # 5.2 Cho pyHanko đọc và ký trên file tạm
             with open(tmp_in.name, "rb") as input_file:
                 pdf_writer = IncrementalPdfFileWriter(input_file, strict=False)
+
+                # TẠO TÊN FIELD DUY NHẤT ĐỂ CHO PHÉP KÝ NHIỀU LẦN
+                new_sig_field_name = f"Sig_{datetime.now().strftime('%Y%m%d%H%M%S')}"
+
                 meta = signers.PdfSignatureMetadata(
-                    field_name="Signature1",
+                    field_name=new_sig_field_name,
                     location=sign_data.signer_location,
                     reason=sign_data.signer_reason,
                     name=sign_data.signer_name,
@@ -186,7 +197,7 @@ class SignService:
                         else:
                             raise e
 
-            # 5.3 Đẩy file đã ký ngược lên Supabase
+            # 5.3 Đẩy file đã ký ngược lên hệ thống lưu trữ
             with open(tmp_out.name, "rb") as f:
                 signed_bytes = f.read()
                 save_signed_file_content(output_db_path, signed_bytes)
@@ -216,7 +227,7 @@ class SignService:
             return signature_record
 
         finally:
-            # Luôn dọn dẹp file tạm dù thành công hay có lỗi để chống tràn ổ cứng máy chủ
+            # Luôn dọn dẹp file tạm dù thành công hay có lỗi
             tmp_in.close()
             tmp_out.close()
             if os.path.exists(tmp_in.name):

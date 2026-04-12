@@ -10,7 +10,7 @@ databases:
 # 2. Cấu hình FastAPI Web Service (Nằm trong block services)
 services:
   - type: web
-    name: fastapi-signature-api
+    name: securesign
     env: python
     buildCommand: "pip install -r requirements.txt"
     startCommand: "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
@@ -29,8 +29,6 @@ services:
       - key: ALGORITHM
         value: "HS256"
         
-      - key: ENCRYPTION_KEY
-        sync: false 
       - key: TSA_URL
         value: "http://timestamp.digicert.com"
         
