@@ -1,0 +1,19 @@
+[tool.mypy]
+explicit_package_bases = true
+namespace_packages = true
+
+implicit_optional = true
+
+[[tool.mypy.overrides]]
+module = [
+    "sqlalchemy.*",
+    "pyhanko.*",
+    "pyhanko_certvalidator.*",
+    "asn1crypto.*",
+    "pytz.*",
+    "passlib.*",
+    "jose.*",
+    "aiofiles.*",
+    "requests.*"
+]
+ignore_missing_imports = true

@@ -27,3 +27,8 @@ pyHanko==0.21.0
 # Cloud Storage
 supabase==2.4.5
 aiofiles
+
+pytest==8.3.2
+pytest-cov==5.0.0
+mypy
+sqlalchemy2-stubs

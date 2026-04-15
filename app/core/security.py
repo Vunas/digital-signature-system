@@ -1,5 +1,5 @@
 from passlib.context import CryptContext
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 from typing import Optional
 from jose import jwt, JWTError
 from .config import settings
@@ -22,9 +22,9 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     """Tạo JWT Access Token cho phiên đăng nhập (thời gian sống ngắn)"""
     to_encode = data.copy()
     if expires_delta:
-        expire = datetime.utcnow() + expires_delta
+        expire = datetime.now(UTC) + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(
+        expire = datetime.now(UTC) + timedelta(
             minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
         )
 
@@ -39,10 +39,9 @@ def create_refresh_token(data: dict, expires_delta: Optional[timedelta] = None):
     """Tạo JWT Refresh Token để cấp lại Access Token khi hết hạn (thời gian sống dài)"""
     to_encode = data.copy()
     if expires_delta:
-        expire = datetime.utcnow() + expires_delta
+        expire = datetime.now(UTC) + expires_delta
     else:
-        # Mặc định refresh token sống 7 ngày nếu không chỉ định
-        expire = datetime.utcnow() + timedelta(days=7)
+        expire = datetime.now(UTC) + timedelta(days=7)
 
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(
@@ -54,7 +53,6 @@ def create_refresh_token(data: dict, expires_delta: Optional[timedelta] = None):
 def decode_token(token: str) -> dict:
     """Giải mã JWT Token và kiểm tra tính hợp lệ, trả về payload (dữ liệu bên trong token)"""
     try:
-        # Xóa chữ "Bearer " nếu lỡ bị dính vào từ cookie
         if token.startswith("Bearer "):
             token = token.replace("Bearer ", "")
 
@@ -63,5 +61,4 @@ def decode_token(token: str) -> dict:
         )
         return payload
     except JWTError as e:
-        # Ném ra lỗi chung để Router bên ngoài có thể xử lý thành HTTPException 401
         raise ValueError(f"Token không hợp lệ hoặc đã hết hạn: {str(e)}")

@@ -1,0 +1,47 @@
+import pytest
+
+from app.models.user import User
+
+
+@pytest.mark.integration
+def test_generate_key_endpoint_uses_dependency_overrides(
+    client_full, db_session, override_current_user_full
+):
+    # Ensure the overridden current user exists in DB if any code queries it later
+    db_user = (
+        db_session.query(User)
+        .filter(User.username == override_current_user_full.username)
+        .first()
+    )
+
+    if not db_user:
+        db_user = User(
+            id=override_current_user_full.id,
+            username=override_current_user_full.username,
+            password_hash=override_current_user_full.password_hash,
+            is_active=True,
+        )
+        db_session.add(db_user)
+        db_session.commit()
+
+    payload = {
+        "key_name": "My Test Key",
+        "storage_type": "server",
+        "key_size": 2048,
+        "algorithm": "RSA",
+        "passphrase": None,
+    }
+
+    res = client_full.post("/api/keys/", json=payload)
+
+    assert res.status_code == 200, res.text
+    data = res.json()
+
+    assert data["user_id"] == override_current_user_full.id
+    assert data["key_name"] == payload["key_name"]
+    assert data["storage_type"] == "server"
+    assert data["algorithm"] == "RSA"
+
+    assert isinstance(data["key_fingerprint"], str)
+    assert len(data["key_fingerprint"]) == 16
+    assert data["key_fingerprint"].upper() == data["key_fingerprint"]

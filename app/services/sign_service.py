@@ -21,6 +21,7 @@ from app.repositories.key_repo import key_repo
 from app.repositories.certificate_repo import certificate_repo
 from app.repositories.signature_repo import signature_repo
 from app.services.crypto.aes_service import aes_service
+from app.models.document import DocumentStatus
 
 from app.utils.file_utils import (
     get_signed_file_path,
@@ -33,30 +34,85 @@ class SignService:
     def sign_pdf(self, db: Session, user_id: int, sign_data: SignatureCreate):
         """Thực hiện nhúng chữ ký số chuẩn PAdES vào tệp PDF, hỗ trợ ký bồi (nhiều chữ ký)."""
 
-        # 1. Lấy thông tin Document, Key, Certificate từ DB
-        doc = document_repo.get_by_id(db, sign_data.document_id, user_id)
-        key_record = key_repo.get_by_id(db, sign_data.key_id, user_id)
-        cert_record = certificate_repo.get_by_key_id(db, key_record.id)
-
-        if not doc or not key_record or not cert_record:
-            raise ValueError("Dữ liệu không hợp lệ hoặc thiếu chứng chỉ.")
-
-        # TỰ ĐỘNG CHỌN FILE GỐC ĐỂ KÝ TIẾP
-        # Nếu tài liệu đã có chữ ký, lấy file đã ký làm đầu vào để ký chồng lên
-        input_db_path = getattr(doc, "signed_path", None) or getattr(
-            doc, "signed_file_path", None
+        # 1. Validate & Lấy dữ liệu từ DB
+        doc, key_record, cert_record = self._get_and_validate_records(
+            db, user_id, sign_data
         )
-        if not input_db_path:
-            input_db_path = doc.original_file_path
 
-        # Sinh đường dẫn lưu file đầu ra
+        # 2. Tự động chọn file gốc để ký tiếp (Hỗ trợ ký bồi)
+        input_db_path = (
+            getattr(doc, "signed_path", None)
+            or getattr(doc, "signed_file_path", None)
+            or doc.original_file_path
+        )
         output_db_path = get_signed_file_path(doc.file_name, input_db_path)
 
-        # 2. Chuẩn bị Cryptography Objects từ DB
-        if key_record.storage_type == "local" or (
-            hasattr(key_record.storage_type, "value")
-            and key_record.storage_type.value == "local"
-        ):
+        # 3. Chuẩn bị các Cryptography Objects
+        private_key = self._load_private_key(key_record, sign_data)
+        end_entity_cert = self._load_certificate(cert_record)
+        cert_registry = self._build_certificate_registry(db)
+
+        # 4. Cấu hình Timestamper (TSA)
+        timestamper = self._setup_timestamper()
+
+        # 5. Thực thi ký file PDF an toàn qua Temp files
+        self._execute_pdf_signing(
+            input_db_path=input_db_path,
+            output_db_path=output_db_path,
+            private_key=private_key,
+            end_entity_cert=end_entity_cert,
+            cert_registry=cert_registry,
+            timestamper=timestamper,
+            sign_data=sign_data,
+        )
+
+        # 6. Lưu thông tin Chữ ký & Cập nhật trạng thái Document
+        signature_record = signature_repo.create(
+            db=db,
+            document_id=doc.id,
+            key_id=key_record.id,
+            certificate_id=cert_record.id,
+            user_id=user_id,
+            signer_name=sign_data.signer_name,
+            signer_reason=sign_data.signer_reason,
+            signer_location=sign_data.signer_location,
+            visible_signature=True,
+        )
+
+        document_repo.update_status(
+            db=db,
+            db_obj=doc,
+            status=DocumentStatus.SIGNED,
+            signed_path=output_db_path,
+        )
+
+        return signature_record
+
+    def _get_and_validate_records(
+        self, db: Session, user_id: int, sign_data: SignatureCreate
+    ):
+        """Lấy record từ DB và chặn triệt để lỗi AttributeError khi record bị Null."""
+        doc = document_repo.get_by_id(db, sign_data.document_id, user_id)
+        key_record = key_repo.get_by_id(db, sign_data.key_id, user_id)
+
+        cert_record = None
+        if key_record:
+            cert_record = certificate_repo.get_by_key_id(db, key_record.id)
+
+        if not doc or not key_record or not cert_record:
+            raise ValueError(
+                "Không tìm thấy tài liệu, khóa hoặc chứng thư số tương ứng."
+            )
+
+        return doc, key_record, cert_record
+
+    def _load_private_key(self, key_record, sign_data: SignatureCreate):
+        """Trích xuất và giải mã Private Key dựa trên loại lưu trữ."""
+        storage_type = getattr(
+            key_record.storage_type, "value", key_record.storage_type
+        )
+
+        if storage_type == "local":
             if not getattr(sign_data, "raw_private_key", None):
                 raise ValueError(
                     "Vui lòng đính kèm file Private Key (.pem) từ máy của bạn để ký."
@@ -71,47 +127,47 @@ class SignService:
                 )
 
         try:
-            crypto_priv_key = load_pem_private_key(
-                priv_key_bytes,
-                password=(
-                    sign_data.passphrase.encode("utf-8")
-                    if getattr(sign_data, "passphrase", None)
-                    else None
-                ),
+            password = (
+                sign_data.passphrase.encode("utf-8")
+                if getattr(sign_data, "passphrase", None)
+                else None
             )
+            crypto_priv_key = load_pem_private_key(priv_key_bytes, password=password)
         except Exception:
             raise ValueError(
                 "Mật khẩu giải mã khóa không hợp lệ hoặc sai định dạng khóa."
             )
 
-        # Chuyển đổi sang asn1crypto
         der_key_bytes = crypto_priv_key.private_bytes(
             encoding=serialization.Encoding.DER,
             format=serialization.PrivateFormat.PKCS8,
             encryption_algorithm=serialization.NoEncryption(),
         )
-        private_key = keys.PrivateKeyInfo.load(der_key_bytes)
+        return keys.PrivateKeyInfo.load(der_key_bytes)
 
-        # Load Certificate Người dùng
+    def _load_certificate(self, cert_record):
+        """Parse dữ liệu chứng chỉ của người dùng thành đối tượng x509."""
         cert_bytes = getattr(cert_record, "certificate_data", None) or getattr(
             cert_record, "certificate_pem", None
         )
         if not cert_bytes:
             raise ValueError("Không tìm thấy dữ liệu chứng chỉ trong Database.")
+
         if isinstance(cert_bytes, str):
             cert_bytes = cert_bytes.encode("utf-8")
 
         if pem.detect(cert_bytes):
             _, _, der_cert_bytes = pem.unarmor(cert_bytes)
-            end_entity_cert = x509.Certificate.load(der_cert_bytes)
-        else:
-            end_entity_cert = x509.Certificate.load(cert_bytes)
+            return x509.Certificate.load(der_cert_bytes)
+        return x509.Certificate.load(cert_bytes)
 
-        # 3. XÂY DỰNG CHUỖI CHỨNG CHỈ
+    def _build_certificate_registry(self, db: Session):
+        """Đăng ký Intermediate/Root CA để tạo thành Trust Chain."""
         cert_registry = SimpleCertificateStore()
         inter_cert_record = certificate_repo.get_by_name(
             db, "SecureSign Intermediate CA"
         )
+
         if inter_cert_record:
             inter_cert_bytes = getattr(
                 inter_cert_record, "certificate_data", None
@@ -119,30 +175,45 @@ class SignService:
             if inter_cert_bytes:
                 if isinstance(inter_cert_bytes, str):
                     inter_cert_bytes = inter_cert_bytes.encode("utf-8")
+
                 if pem.detect(inter_cert_bytes):
                     _, _, der_inter_bytes = pem.unarmor(inter_cert_bytes)
                     inter_cert = x509.Certificate.load(der_inter_bytes)
                 else:
                     inter_cert = x509.Certificate.load(inter_cert_bytes)
+
                 cert_registry.register(inter_cert)
+        return cert_registry
 
-        # 4. CẤU HÌNH TIMESTAMPER
+    def _setup_timestamper(self):
+        """Thiết lập Time Stamping Authority (TSA) nếu có."""
         tsa_url = os.getenv("TSA_URL")
-        timestamper = None
-        if tsa_url:
-            try:
-                requests.get(tsa_url, timeout=2)
-                timestamper = HTTPTimeStamper(tsa_url)
-            except Exception as e:
-                logging.warning(f"External TSA không phản hồi: {e}")
-                timestamper = None
+        if not tsa_url:
+            return None
 
-        # 5. DOWNLOAD - KÝ - UPLOAD DÙNG TEMP FILE
+        try:
+            # Ping thử TSA server
+            requests.get(tsa_url, timeout=2)
+            return HTTPTimeStamper(tsa_url)
+        except Exception as e:
+            logging.warning(f"External TSA không phản hồi: {e}")
+            return None
+
+    def _execute_pdf_signing(
+        self,
+        input_db_path,
+        output_db_path,
+        private_key,
+        end_entity_cert,
+        cert_registry,
+        timestamper,
+        sign_data: SignatureCreate,
+    ):
+        """Chịu trách nhiệm tương tác trực tiếp với Filesystem và PyHanko."""
         tmp_in = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
         tmp_out = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
 
         try:
-            # 5.1 Tải file thông minh (từ Supabase hoặc Local)
             file_bytes = get_file_content(input_db_path)
             tmp_in.write(file_bytes)
             tmp_in.flush()
@@ -153,11 +224,8 @@ class SignService:
                 cert_registry=cert_registry,
             )
 
-            # 5.2 Cho pyHanko đọc và ký trên file tạm
             with open(tmp_in.name, "rb") as input_file:
                 pdf_writer = IncrementalPdfFileWriter(input_file, strict=False)
-
-                # TẠO TÊN FIELD DUY NHẤT ĐỂ CHO PHÉP KÝ NHIỀU LẦN
                 new_sig_field_name = f"Sig_{datetime.now().strftime('%Y%m%d%H%M%S')}"
 
                 meta = signers.PdfSignatureMetadata(
@@ -182,6 +250,7 @@ class SignService:
                         )
                     except Exception as e:
                         if timestamper:
+                            # Fallback: Ký lại mà không có TSA nếu TSA bị lỗi giữa chừng
                             input_file.seek(0)
                             pdf_writer = IncrementalPdfFileWriter(
                                 input_file, strict=False
@@ -192,42 +261,18 @@ class SignService:
                                 signer=signer,
                                 timestamper=None,
                                 existing_fields_only=False,
+                                in_place=False,
                                 output=output_file,
                             )
                         else:
                             raise e
 
-            # 5.3 Đẩy file đã ký ngược lên hệ thống lưu trữ
+            # Đẩy file đã ký lên bộ lưu trữ (Local / Supabase)
             with open(tmp_out.name, "rb") as f:
-                signed_bytes = f.read()
-                save_signed_file_content(output_db_path, signed_bytes)
-
-            # 6. Lưu thông tin vào Database
-            signature_record = signature_repo.create(
-                db=db,
-                document_id=doc.id,
-                key_id=key_record.id,
-                certificate_id=cert_record.id,
-                user_id=user_id,
-                signer_name=sign_data.signer_name,
-                signer_reason=sign_data.signer_reason,
-                signer_location=sign_data.signer_location,
-                visible_signature=True,
-            )
-
-            from app.models.document import DocumentStatus
-
-            document_repo.update_status(
-                db=db,
-                db_obj=doc,
-                status=DocumentStatus.SIGNED,
-                signed_path=output_db_path,
-            )
-
-            return signature_record
+                save_signed_file_content(output_db_path, f.read())
 
         finally:
-            # Luôn dọn dẹp file tạm dù thành công hay có lỗi
+            # Luôn dọn dẹp file tạm để tránh rò rỉ bộ nhớ/ổ cứng
             tmp_in.close()
             tmp_out.close()
             if os.path.exists(tmp_in.name):

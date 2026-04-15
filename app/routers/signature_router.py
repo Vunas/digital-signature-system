@@ -33,5 +33,5 @@ def sign_document(
         logger.error(f"Lỗi ký tài liệu: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Lỗi hệ thống khi ký tài liệu.",
+            detail=f"Lỗi hệ thống khi ký tài liệu: {str(e)} ",
         )

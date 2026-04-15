@@ -1,29 +1,25 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Response, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
-from datetime import timedelta
 
 from app.core.dependencies import get_db
-from app.core.security import (
-    verify_password,
-    create_access_token,
-    create_refresh_token,
-    decode_token,
+from app.services.auth_service import (
+    auth_service,
+    ACCESS_TOKEN_EXPIRE_MINUTES,
+    REFRESH_TOKEN_EXPIRE_DAYS,
 )
-from app.repositories.user_repo import user_repo
 from app.schemas.user_schema import UserCreate, UserResponse
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
-REFRESH_TOKEN_EXPIRE_DAYS = 7
 
 
 @router.post("/register", response_model=UserResponse)
 def register(user_in: UserCreate, db: Session = Depends(get_db)):
-    user = user_repo.get_by_username(db, username=user_in.username)
-    if user:
-        raise HTTPException(status_code=400, detail="Tên đăng nhập đã tồn tại")
-    return user_repo.create(db, obj_in=user_in)
+    """Đăng ký tài khoản mới"""
+    try:
+        return auth_service.register_user(db, user_in=user_in)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.post("/login")
@@ -33,24 +29,20 @@ def login(
     db: Session = Depends(get_db),
 ):
     """Đăng nhập và Set HttpOnly Cookie"""
-    user = user_repo.get_by_username(db, username=form_data.username)
-    if not user or not verify_password(form_data.password, user.password_hash):
+    try:
+        user, access_token, refresh_token = (
+            auth_service.authenticate_and_generate_tokens(
+                db=db, username=form_data.username, password=form_data.password
+            )
+        )
+    except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Sai tên đăng nhập hoặc mật khẩu",
+            detail=str(e),
+            headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # 1. Tạo 2 loại Token
-    access_token = create_access_token(
-        data={"sub": user.username},
-        expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
-    )
-    refresh_token = create_refresh_token(
-        data={"sub": user.username},
-        expires_delta=timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS),
-    )
-
-    # 2. Gắn vào HttpOnly Cookie
+    # Gắn vào HttpOnly Cookie
     # secure=True nếu chạy HTTPS trên production, samesite="lax" chống CSRF
     response.set_cookie(
         key="access_token",
@@ -76,31 +68,19 @@ def login(
 def refresh_token(request: Request, response: Response, db: Session = Depends(get_db)):
     """Cấp lại Access Token mới dựa vào Refresh Cookie"""
     refresh_cookie = request.cookies.get("refresh_token")
+
+    # Sửa lỗi Mypy: Kiểm tra giá trị tồn tại trước khi đưa xuống Service
     if not refresh_cookie:
         raise HTTPException(status_code=401, detail="Refresh token không tồn tại")
 
     try:
-        payload = decode_token(refresh_cookie)
-        username = payload.get("sub")
-        if not username:
-            raise HTTPException(status_code=401, detail="Token không hợp lệ")
-    except Exception:
-        raise HTTPException(
-            status_code=401, detail="Refresh token đã hết hạn hoặc không hợp lệ"
+        new_access_token = auth_service.refresh_access_token(
+            db, refresh_token_str=refresh_cookie
         )
-
-    # Kiểm tra user có tồn tại không
-    user = user_repo.get_by_username(db, username=username)
-    if not user or not user.is_active:
-        raise HTTPException(
-            status_code=401, detail="Tài khoản bị khóa hoặc không tồn tại"
-        )
+    except ValueError as e:
+        raise HTTPException(status_code=401, detail=str(e))
 
     # Tạo Access Token mới và ghi đè Cookie cũ
-    new_access_token = create_access_token(
-        data={"sub": user.username},
-        expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
-    )
     response.set_cookie(
         key="access_token",
         value=f"Bearer {new_access_token}",

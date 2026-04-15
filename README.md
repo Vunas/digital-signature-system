@@ -6,7 +6,7 @@
 
 **Enterprise-grade PKI & Secure PDF Signing System**
 
-![Dashboard](./docs/dashboard.png)
+<img src="./docs/img/1.png" width="85%" />
 
 </div>
 
@@ -14,77 +14,87 @@
 
 ## 📖 About The Project
 
-**SecureSign** is a production-ready digital signature platform that simulates a full **Public Key Infrastructure (PKI)** workflow.
+**SecureSign** is a production-ready digital signature platform that simulates a complete **Public Key Infrastructure (PKI)** system.
 
-The system enables:
+It enables secure document signing using industry standards such as **RSA, X.509, and PAdES**, ensuring authenticity, integrity, and non-repudiation.
 
-* 🔑 RSA key generation & secure storage
-* 📜 X.509 certificate issuance (Root → Intermediate → User)
-* 📄 Native PAdES digital signatures embedded directly into PDF files
-* ⏱️ Trusted timestamping (RFC3161)
+### 🔑 Core Capabilities
 
-All signed documents are:
-
-✔ Tamper-proof
-✔ Cryptographically verifiable
-✔ Compatible with Adobe Acrobat & Foxit Reader
+* RSA key pair generation & secure storage
+* X.509 certificate chain (Root → Intermediate → End-user)
+* Embedded **PAdES digital signatures** inside PDF
+* RFC3161 compliant **Timestamp Authority (TSA)**
+* Cryptographic verification & tamper detection
 
 ---
 
 ## ✨ Key Features
 
-### 🔐 Advanced Key & Certificate Management
+### 🔐 Key & Certificate Management
 
-* RSA 2048/4096 key pair generation
-* Internal CA system (Root + Intermediate)
+* RSA 2048 / 4096 key generation
+* Internal Certificate Authority (CA)
 * AES-encrypted private key storage
-* Export keys as `.pem` for local custody
+* Export `.pem` keys for local usage
 
 ---
 
-### 📄 Embedded PAdES Signatures
+### 📄 PDF Digital Signing (PAdES)
 
 * Real PDF signing (NOT just hashing)
-* ASN.1 / DER signature block embedding
-* Visible signature watermark
-* Adobe-compatible validation
+* ASN.1 / DER signature embedding
+* Visible signature support
+* Compatible with Adobe Acrobat & Foxit Reader
 
 ---
 
-### ⏱️ Time-Stamping Authority (TSA)
+### ⏱️ Timestamping (TSA)
 
-* RFC3161 compliant timestamping
+* RFC3161 compliant timestamps
 * Prevents backdating attacks
-* Enables long-term validation (LTV)
+* Enables Long-Term Validation (LTV)
 
 ---
 
-### 🛡️ Tamper Detection
+### 🛡️ Security & Integrity
 
-* SHA-256 integrity verification
-* Detects even 1-character modification
-* Instant signature invalidation
+* SHA-256 hashing
+* RSA-PSS digital signatures
+* Detects any document modification
+* Immediate signature invalidation if tampered
 
 ---
 
-### 💻 Modern UI/UX
+### 💻 User Interface
 
-* Responsive Dashboard (Tailwind CSS)
-* Drag & Drop PDF upload
-* Real-time signing status
+* Responsive dashboard (Tailwind CSS)
+* Drag & drop PDF upload
+* Real-time signing feedback
 
-![Sign Page](./docs/sign.png)
+---
+
+## 📸 Screenshots
+
+   <p align="center">
+   <img src="./docs/img/." width="45%" />
+   <img src="./docs/img/." width="45%" />
+   </p>
+
+   <p align="center">
+   <img src="./docs/img/." width="45%" />
+   <img src="./docs/img/." width="45%" />
+   </p>
 
 ---
 
 ## 🧠 Technical Highlights
 
-* Full PKI implementation (not mock)
-* Internal Certificate Authority (CA)
-* Internal Time Stamping Authority (TSA)
-* X.509 / ASN.1 certificate processing
-* AES-secured private key lifecycle
-* PAdES-B-LT compatible signatures
+* Full PKI system (not mock implementation)
+* Internal Certificate Authority (Root + Intermediate)
+* Internal Time Stamping Authority
+* X.509 & ASN.1 certificate processing
+* Secure private key lifecycle (AES encryption)
+* PAdES-B-LT compatible signature workflow
 
 ---
 
@@ -96,7 +106,7 @@ All signed documents are:
 * SQLAlchemy
 * PostgreSQL
 
-### Security & Crypto
+### Security & Cryptography
 
 * pyHanko
 * cryptography
@@ -109,9 +119,37 @@ All signed documents are:
 
 ---
 
+## 🏗️ Architecture
+
+<img src="./docs/architecture.png" width="90%" />
+
+---
+
+## 🧪 Testing
+
+Run all tests:
+
+```bash
+python -m pytest
+```
+
+### ✔ Coverage includes:
+
+* Unit tests (crypto, key service, signing logic)
+* Integration tests (API endpoints)
+* Security tests (RSA signing & verification)
+
+### ✔ Testing setup:
+
+* SQLite in-memory database
+* FastAPI dependency override
+* Isolated transactional tests
+
+---
+
 ## 🚀 Getting Started
 
-### 1. Clone project
+### 1. Clone repository
 
 ```bash
 git clone https://github.com/your-username/securesign.git
@@ -144,7 +182,7 @@ pip install -r requirements.txt
 
 ### 4. Setup environment
 
-Tạo file `.env`:
+Create `.env` file:
 
 ```env
 DATABASE_URL=postgresql://user:password@localhost:5432/digital_signature_db
@@ -172,13 +210,26 @@ uvicorn app.main:app --reload
 
 ---
 
+## 🐳 Docker (Recommended)
+
+```bash
+docker compose up --build
+```
+
+This will start:
+
+* FastAPI backend
+* PostgreSQL database
+
+---
+
 ## 👥 Demo Accounts
 
-| Username       | Role     | Description                    |
-| -------------- | -------- | ------------------------------ |
-| admin          | Admin    | Full system control (Root CA)  |
-| giamdoc_nguyen | Signer   | Has certificate, ready to sign |
-| nhanvien_tran  | Employee | Upload & review documents      |
+| Username       | Role     | Description                   |
+| -------------- | -------- | ----------------------------- |
+| admin          | Admin    | Full system control (Root CA) |
+| giamdoc_nguyen | Signer   | Ready to sign documents       |
+| nhanvien_tran  | Employee | Upload & review documents     |
 
 **Password:** `123456`
 
@@ -191,13 +242,13 @@ uvicorn app.main:app --reload
 3. Upload PDF
 4. Sign document
 5. Download signed file
-6. Verify in Adobe Acrobat
+6. Verify signature
 
 ---
 
 ## ✅ Trusted Validation (IMPORTANT)
 
-To see **green "Trusted" checkmark** in Adobe:
+To display **"Trusted Signature"** in Adobe Acrobat:
 
 1. Download Root CA certificate
 2. Import into:
@@ -208,12 +259,22 @@ To see **green "Trusted" checkmark** in Adobe:
 
 ---
 
+## 🔒 Security Notes
+
+* Private keys are encrypted using AES before storage
+* RSA keys are never stored in plaintext
+* Signatures use SHA-256 + RSA-PSS
+* Timestamping prevents replay attacks
+* Full certificate chain validation supported
+
+---
+
 ## 🎯 Real-World Applications
 
-* 🏦 Banking & Finance
-* 🏥 Healthcare
-* 🏛️ Government
-* 🏢 Enterprise contracts
+* Banking & Finance
+* Healthcare
+* Government
+* Enterprise contracts
 
 ---
 

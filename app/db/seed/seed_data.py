@@ -293,7 +293,7 @@ def seed_logs(db: Session, docs: list, users: dict):
 
         v_log = VerifyLog(
             document_id=doc.id,
-            signature_id=sig.id,  # ✅ FIX
+            signature_id=sig.id,
             is_valid=True,
             message="Chữ ký hợp lệ. Chứng chỉ toàn vẹn.",
             created_at=datetime.utcnow() - timedelta(hours=random.randint(1, 48)),

@@ -68,7 +68,6 @@ class CertificateService:
                 datetime.datetime.utcnow()
                 + datetime.timedelta(days=cert_data.valid_days)
             )
-            # CẤU HÌNH QUAN TRỌNG NHẤT: Bật cờ CA = True để nó có quyền cấp chứng chỉ con
             .add_extension(
                 x509.BasicConstraints(ca=True, path_length=None), critical=True
             )

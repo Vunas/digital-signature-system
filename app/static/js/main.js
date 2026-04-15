@@ -20,7 +20,6 @@ async function fetchAPI(
     headers["Content-Type"] = "application/json";
   }
 
-  // QUAN TRỌNG: "same-origin" hoặc "include" để trình duyệt tự động đính kèm HttpOnly Cookies
   const options = { method, headers, credentials: "same-origin" };
 
   if (body) {

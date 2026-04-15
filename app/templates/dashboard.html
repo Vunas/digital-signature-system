@@ -251,7 +251,6 @@ endblock %} {% block content %}
       } else {
         tbodyDocs.innerHTML = data.documents
           .map((d) => {
-            // Logic Nút Action Chuyên Nghiệp (Sử dụng hàm onclick thay vì href)
             let actionButtons = `
                             <div class="flex items-center justify-end space-x-2">
                                 <button onclick="downloadDocument(${d.id}, '${d.name}', false)" class="inline-flex items-center justify-center px-3 py-2 bg-white text-slate-600 hover:bg-slate-50 rounded-lg transition-all duration-200 text-xs font-semibold border border-slate-200 shadow-sm" title="Tải tài liệu nháp ban đầu">
