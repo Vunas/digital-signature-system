@@ -7,8 +7,6 @@ import uvicorn
 import os
 
 from app.core.config import settings
-from app.db.session import engine
-from app.db.base import Base
 
 from app.core.middleware import LoggingMiddleware
 from app.routers import (
@@ -20,10 +18,6 @@ from app.routers import (
     dashboard_router,
     signature_router,
 )
-
-# 1. TỰ ĐỘNG TẠO BẢNG TRONG DATABASE
-# Lệnh này sẽ quét các models và tạo bảng trên PostgreSQL nếu chưa có
-Base.metadata.create_all(bind=engine)
 
 # 2. KHỞI TẠO FASTAPI APP
 app = FastAPI(
