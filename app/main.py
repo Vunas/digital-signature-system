@@ -71,13 +71,13 @@ app.include_router(signature_router.router)
 @app.get("/", response_class=HTMLResponse, include_in_schema=False)
 async def root(request: Request):
     """Trang Chủ giới thiệu (Landing Page)"""
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse(request, "index.html")
 
 
 @app.get("/login", response_class=HTMLResponse, include_in_schema=False)
 async def login_page(request: Request):
     """Trang Đăng Nhập"""
-    return templates.TemplateResponse("login.html", {"request": request})
+    return templates.TemplateResponse(request, "login.html")
 
 
 @app.get("/dashboard", response_class=HTMLResponse, include_in_schema=False)

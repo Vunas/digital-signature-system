@@ -1,4 +1,5 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from typing import Optional
 
 
 class Settings(BaseSettings):
@@ -31,8 +32,9 @@ class Settings(BaseSettings):
     # ========================
     # SUPABASE
     # ========================
-    SUPABASE_URL: str = ""
-    SUPABASE_KEY: str = ""
+
+    SUPABASE_URL: Optional[str] = None
+    SUPABASE_KEY: Optional[str] = None
 
     # ========================
     # Pydantic Config

@@ -2,7 +2,7 @@ import sys
 import os
 import hashlib
 import random
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 
 from sqlalchemy.orm import Session
 from app.db.session import SessionLocal, engine
@@ -296,7 +296,7 @@ def seed_logs(db: Session, docs: list, users: dict):
             signature_id=sig.id,
             is_valid=True,
             message="Chữ ký hợp lệ. Chứng chỉ toàn vẹn.",
-            created_at=datetime.utcnow() - timedelta(hours=random.randint(1, 48)),
+            created_at=datetime.now(UTC) - timedelta(hours=random.randint(1, 48)),
         )
         db.add(v_log)
 

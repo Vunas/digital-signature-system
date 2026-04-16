@@ -7,8 +7,8 @@ from app.core.config import settings
 import logging
 
 BUCKET_NAME = "documents"
-# Kiểm tra xem có cấu hình Supabase hợp lệ không
 USE_SUPABASE = bool(settings.SUPABASE_URL and settings.SUPABASE_KEY)
+logging.info("Supabase: " + str(USE_SUPABASE))
 supabase: Client = None
 
 if USE_SUPABASE:
