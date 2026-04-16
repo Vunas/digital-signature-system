@@ -7,8 +7,6 @@ import uvicorn
 import os
 
 from app.core.config import settings
-from app.db.session import engine
-from app.db.base import Base
 
 from app.core.middleware import LoggingMiddleware
 from app.routers import (
@@ -20,10 +18,6 @@ from app.routers import (
     dashboard_router,
     signature_router,
 )
-
-# 1. TỰ ĐỘNG TẠO BẢNG TRONG DATABASE
-# Lệnh này sẽ quét các models và tạo bảng trên PostgreSQL nếu chưa có
-Base.metadata.create_all(bind=engine)
 
 # 2. KHỞI TẠO FASTAPI APP
 app = FastAPI(
@@ -71,13 +65,13 @@ app.include_router(signature_router.router)
 @app.get("/", response_class=HTMLResponse, include_in_schema=False)
 async def root(request: Request):
     """Trang Chủ giới thiệu (Landing Page)"""
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse(request, "index.html")
 
 
 @app.get("/login", response_class=HTMLResponse, include_in_schema=False)
 async def login_page(request: Request):
     """Trang Đăng Nhập"""
-    return templates.TemplateResponse("login.html", {"request": request})
+    return templates.TemplateResponse(request, "login.html")
 
 
 @app.get("/dashboard", response_class=HTMLResponse, include_in_schema=False)

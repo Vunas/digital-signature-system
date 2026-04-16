@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
-from fastapi.responses import StreamingResponse  # <--- THÊM IMPORT NÀY
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
-import io  # <--- THÊM IMPORT NÀY
+import io
 
 from app.core.dependencies import get_db, get_current_user
 from app.models.user import User
@@ -9,8 +9,8 @@ from app.schemas.document_schema import DocumentResponse
 from app.services.file_service import file_service
 from app.repositories.document_repo import document_repo
 
-# Kéo thêm đối tượng supabase từ file_utils
-from app.utils.file_utils import supabase, BUCKET_NAME
+# ✅ IMPORT ĐÚNG (không dùng supabase trực tiếp nữa)
+from app.utils.file_utils import get_file_content
 
 router = APIRouter(prefix="/documents", tags=["Documents"])
 
@@ -35,7 +35,7 @@ async def upload_document(
 def get_my_documents(
     db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
 ):
-    """Lấy danh sách các tài liệu đã upload của người dùng"""
+    """Lấy danh sách các tài liệu của user"""
     return document_repo.get_all_by_user(db, current_user.id)
 
 
@@ -47,46 +47,43 @@ async def download_document(
     current_user: User = Depends(get_current_user),
 ):
     """
-    Tải file PDF từ Supabase Storage về máy tính.
-    - Nếu is_signed=False (mặc định): Tải bản gốc (original_file_path).
-    - Nếu is_signed=True: Tải bản đã ký (signed_path).
+    Tải file PDF (local hoặc Supabase – tự động xử lý)
     """
-    # 1. Kiểm tra tài liệu có tồn tại và thuộc về user không
+
+    # 1. Kiểm tra document
     doc = document_repo.get_by_id(db, doc_id, current_user.id)
     if not doc:
         raise HTTPException(status_code=404, detail="Không tìm thấy tài liệu.")
 
-    # 2. Lấy đường dẫn Cloud tương ứng
-    cloud_path = doc.signed_file_path if is_signed else doc.original_file_path
+    # 2. Xác định path
+    file_path = doc.signed_file_path if is_signed else doc.original_file_path
 
-    if not cloud_path:
+    if not file_path:
         raise HTTPException(
             status_code=400,
             detail=(
                 "Tài liệu này chưa được ký."
                 if is_signed
-                else "Không tìm thấy đường dẫn file gốc."
+                else "Không tìm thấy file gốc."
             ),
         )
 
-    # 3. Download dữ liệu file từ Supabase Storage (dưới dạng bytes)
+    # 3. Lấy file content (🔥 FIX CHÍNH Ở ĐÂY)
     try:
-        file_bytes = supabase.storage.from_(BUCKET_NAME).download(cloud_path)
+        file_bytes = get_file_content(file_path)
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Lỗi tải file từ Storage: {str(e)}"
         )
 
-    # 4. Trả về luồng dữ liệu (Stream) cho trình duyệt để download
+    # 4. Chuẩn hóa tên file
     filename = doc.file_name
     if is_signed and not filename.endswith("_signed.pdf"):
         filename = filename.replace(".pdf", "_signed.pdf")
 
-    # Bọc byte data vào BytesIO để FastAPI có thể stream nó
-    file_stream = io.BytesIO(file_bytes)
-
+    # 5. Stream file về client
     return StreamingResponse(
-        file_stream,
+        io.BytesIO(file_bytes),
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )

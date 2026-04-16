@@ -76,13 +76,13 @@ It enables secure document signing using industry standards such as **RSA, X.509
 ## 📸 Screenshots
 
    <p align="center">
-   <img src="./docs/img/." width="45%" />
-   <img src="./docs/img/." width="45%" />
+   <img src="./docs/img/2.png" width="45%" />
+   <img src="./docs/img/3.png" width="45%" />
    </p>
 
    <p align="center">
-   <img src="./docs/img/." width="45%" />
-   <img src="./docs/img/." width="45%" />
+   <img src="./docs/img/4.png" width="45%" />
+   <img src="./docs/img/5.png" width="45%" />
    </p>
 
 ---
@@ -116,12 +116,6 @@ It enables secure document signing using industry standards such as **RSA, X.509
 
 * Tailwind CSS
 * Vanilla JavaScript (Fetch API)
-
----
-
-## 🏗️ Architecture
-
-<img src="./docs/architecture.png" width="90%" />
 
 ---
 

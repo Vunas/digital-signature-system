@@ -7,7 +7,7 @@ from cryptography.hazmat.primitives.serialization import (
     load_pem_public_key,
     Encoding,
 )
-import datetime
+from datetime import datetime, timedelta, UTC
 
 from app.schemas.certificate_schema import CertificateCreate
 from app.repositories.certificate_repo import certificate_repo
@@ -63,11 +63,8 @@ class CertificateService:
             .issuer_name(issuer)
             .public_key(public_key)
             .serial_number(x509.random_serial_number())
-            .not_valid_before(datetime.datetime.utcnow())
-            .not_valid_after(
-                datetime.datetime.utcnow()
-                + datetime.timedelta(days=cert_data.valid_days)
-            )
+            .not_valid_before(datetime.now(UTC))
+            .not_valid_after(datetime.now(UTC) + timedelta(days=cert_data.valid_days))
             .add_extension(
                 x509.BasicConstraints(ca=True, path_length=None), critical=True
             )
@@ -133,11 +130,8 @@ class CertificateService:
             .issuer_name(issuer_x509.subject)
             .public_key(user_public_key)
             .serial_number(x509.random_serial_number())
-            .not_valid_before(datetime.datetime.utcnow())
-            .not_valid_after(
-                datetime.datetime.utcnow()
-                + datetime.timedelta(days=cert_data.valid_days)
-            )
+            .not_valid_before(datetime.now(UTC))
+            .not_valid_after(datetime.now(UTC) + timedelta(days=cert_data.valid_days))
             .add_extension(
                 x509.BasicConstraints(ca=is_ca, path_length=0 if is_ca else None),
                 critical=True,

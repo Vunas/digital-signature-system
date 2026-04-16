@@ -88,6 +88,26 @@ def override_current_user_full(fastapi_app_full: FastAPI):
     return user
 
 
+@pytest.fixture()
+def mock_uow():
+    """
+    Generic Unit of Work test double for services that need commit/rollback checks.
+    """
+
+    class MockUnitOfWork:
+        def __init__(self):
+            self.committed = False
+            self.rolled_back = False
+
+        def commit(self):
+            self.committed = True
+
+        def rollback(self):
+            self.rolled_back = True
+
+    return MockUnitOfWork()
+
+
 # --- MOCK FACTORIES (ENTERPRISE PATTERN) ---
 
 
