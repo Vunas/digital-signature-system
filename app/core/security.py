@@ -1,12 +1,10 @@
 from passlib.context import CryptContext
-from datetime import datetime, UTC, timedelta
+from datetime import datetime, timezone, timedelta
 from typing import Optional
-from jose import jwt, JWTError
-from .config import settings
+import jwt
+from app.core.config import settings
 
-# Khởi tạo ngữ cảnh băm mật khẩu
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Kiểm tra mật khẩu người dùng nhập vào có khớp với mã băm trong DB không."""
@@ -19,46 +17,30 @@ def get_password_hash(password: str) -> str:
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
-    """Tạo JWT Access Token cho phiên đăng nhập (thời gian sống ngắn)"""
+    """Tạo JWT Access Token cho phiên đăng nhập"""
     to_encode = data.copy()
     if expires_delta:
-        expire = datetime.now(UTC) + expires_delta
+        expire = datetime.now(timezone.utc) + expires_delta
     else:
-        expire = datetime.now(UTC) + timedelta(
+        expire = datetime.now(timezone.utc) + timedelta(
             minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
         )
 
     to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(
-        to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM
-    )
-    return encoded_jwt
-
-
-def create_refresh_token(data: dict, expires_delta: Optional[timedelta] = None):
-    """Tạo JWT Refresh Token để cấp lại Access Token khi hết hạn (thời gian sống dài)"""
-    to_encode = data.copy()
-    if expires_delta:
-        expire = datetime.now(UTC) + expires_delta
-    else:
-        expire = datetime.now(UTC) + timedelta(days=7)
-
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(
-        to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM
-    )
+    # PyJWT encode trả về string luôn
+    encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     return encoded_jwt
 
 
 def decode_token(token: str) -> dict:
-    """Giải mã JWT Token và kiểm tra tính hợp lệ, trả về payload (dữ liệu bên trong token)"""
+    """Giải mã JWT Token và kiểm tra tính hợp lệ"""
     try:
         if token.startswith("Bearer "):
             token = token.replace("Bearer ", "")
 
-        payload = jwt.decode(
-            token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
-        )
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         return payload
-    except JWTError as e:
-        raise ValueError(f"Token không hợp lệ hoặc đã hết hạn: {str(e)}")
+    except jwt.ExpiredSignatureError:
+        raise ValueError("Token đã hết hạn")
+    except jwt.InvalidTokenError as e:
+        raise ValueError(f"Token không hợp lệ: {str(e)}")
