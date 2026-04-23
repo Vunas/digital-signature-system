@@ -1,19 +1,24 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from app.models.key import Key
 
 
 class KeyRepository:
-    def get_by_id(self, db: Session, key_id: int, user_id: int):
-        return db.query(Key).filter(Key.id == key_id, Key.user_id == user_id).first()
+    async def get_by_id(self, db: AsyncSession, key_id: int, user_id: int):
+        stmt = select(Key).where(Key.id == key_id, Key.user_id == user_id)
+        result = await db.execute(stmt)
+        return result.scalar_one_or_none()
 
-    def get_all_by_user(self, db: Session, user_id: int):
-        return db.query(Key).filter(Key.user_id == user_id).all()
+    async def get_all_by_user(self, db: AsyncSession, user_id: int):
+        stmt = select(Key).where(Key.user_id == user_id)
+        result = await db.execute(stmt)
+        return result.scalars().all()
 
-    def create(self, db: Session, **kwargs):
+    async def create(self, db: AsyncSession, **kwargs):
         db_obj = Key(**kwargs)
         db.add(db_obj)
-        db.commit()
-        db.refresh(db_obj)
+        await db.flush()  # Thay commit() bằng flush()
+        await db.refresh(db_obj)
         return db_obj
 
 
