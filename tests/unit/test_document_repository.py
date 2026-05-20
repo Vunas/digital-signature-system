@@ -1,8 +1,10 @@
 from types import SimpleNamespace
 
 import pytest
-
 from app.repositories.document_repo import DocumentRepository
+
+pytestmark = pytest.mark.asyncio
+
 
 
 @pytest.fixture()
@@ -11,7 +13,7 @@ def document_repo_instance():
 
 
 class TestDocumentRepository:
-    def test_create_valid_payload_persists_and_returns_entity(
+    async def test_create_valid_payload_persists_and_returns_entity(
         self, document_repo_instance, monkeypatch
     ):
         # Arrange
@@ -21,11 +23,8 @@ class TestDocumentRepository:
             def add(self, obj):
                 added["obj"] = obj
 
-            def commit(self):
-                added["commit"] = True
-
-            def refresh(self, obj):
-                added["refresh"] = obj
+            async def flush(self):
+                added["flush"] = True
 
         monkeypatch.setattr(
             "app.repositories.document_repo.Document",
@@ -34,7 +33,7 @@ class TestDocumentRepository:
         db = DummyDB()
 
         # Act
-        doc = document_repo_instance.create(
+        doc = await document_repo_instance.create(
             db,
             user_id=1,
             file_name="a.pdf",
@@ -47,46 +46,40 @@ class TestDocumentRepository:
         # Assert
         assert doc.file_name == "a.pdf"
         assert added["obj"] == doc
-        assert added["commit"] is True
-        assert added["refresh"] == doc
+        assert added["flush"] is True
 
-    def test_get_by_id_not_found_returns_none(self, document_repo_instance):
+    async def test_get_by_id_not_found_returns_none(self, document_repo_instance):
         # Arrange
-        class DummyQuery:
-            def filter(self, *args, **kwargs):
-                return self
-
-            def first(self):
-                return None
-
-        db = SimpleNamespace(query=lambda model: DummyQuery())
+        db = SimpleNamespace(
+            execute=lambda stmt: None,
+        )
+        async def _execute(stmt):
+            return SimpleNamespace(scalar_one_or_none=lambda: None)
+        db.execute = _execute
 
         # Act
-        result = document_repo_instance.get_by_id(db, doc_id=999, user_id=1)
+        result = await document_repo_instance.get_by_id(db, doc_id=999, user_id=1)
 
         # Assert
         assert result is None
 
-    def test_update_status_with_signed_path_updates_fields_and_commits(
+    async def test_update_status_with_signed_path_updates_fields_and_commits(
         self, document_repo_instance
     ):
         # Arrange
         db_obj = SimpleNamespace(
             status=None, signed_file_path=None, signed_file_hash=None
         )
-        calls = {"commit": 0, "refresh": 0}
+        calls = {"flush": 0}
 
         class DummyDB:
-            def commit(self):
-                calls["commit"] += 1
-
-            def refresh(self, obj):
-                calls["refresh"] += 1
+            async def flush(self):
+                calls["flush"] += 1
 
         db = DummyDB()
 
         # Act
-        out = document_repo_instance.update_status(
+        out = await document_repo_instance.update_status(
             db=db,
             db_obj=db_obj,
             status="SIGNED",
@@ -99,5 +92,4 @@ class TestDocumentRepository:
         assert db_obj.status == "SIGNED"
         assert db_obj.signed_file_path == "local:/signed.pdf"
         assert db_obj.signed_file_hash == "abc"
-        assert calls["commit"] == 1
-        assert calls["refresh"] == 1
+        assert calls["flush"] == 1

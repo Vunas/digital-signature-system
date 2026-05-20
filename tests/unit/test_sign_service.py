@@ -1,12 +1,15 @@
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import pytest
-
 from app.services.sign_service import SignService
+
+pytestmark = pytest.mark.asyncio
+
 
 
 @pytest.mark.unit
-def test_sign_pdf_missing_records_raises_value_error(mock_sign_repos):
+async def test_sign_pdf_missing_records_raises_value_error(mock_sign_repos):
     """
     Validates: Actively raises an error (ValueError) when a record is not found in the database.
     """
@@ -18,11 +21,11 @@ def test_sign_pdf_missing_records_raises_value_error(mock_sign_repos):
     sign_data = SimpleNamespace(document_id=1, key_id=1)
 
     with pytest.raises(ValueError, match="Không tìm thấy tài liệu"):
-        svc.sign_pdf(db=None, user_id=1, sign_data=sign_data)
+        await svc.sign_pdf(db=None, user_id=1, sign_data=sign_data)
 
 
 @pytest.mark.unit
-def test_sign_pdf_local_key_requires_raw_private_key(mock_sign_repos):
+async def test_sign_pdf_local_key_requires_raw_private_key(mock_sign_repos):
     """
     Validates: local storage refuses signing if raw_private_key not provided.
     """
@@ -42,12 +45,12 @@ def test_sign_pdf_local_key_requires_raw_private_key(mock_sign_repos):
         signer_location="l",
     )
 
-    with pytest.raises(ValueError, match="đính kèm file Private Key"):
-        svc.sign_pdf(db=None, user_id=1, sign_data=sign_data)
+    with pytest.raises(ValueError, match="Private Key"):
+        await svc.sign_pdf(db=None, user_id=1, sign_data=sign_data)
 
 
 @pytest.mark.unit
-def test_sign_pdf_invalid_passphrase_maps_to_value_error(mock_sign_repos, monkeypatch):
+async def test_sign_pdf_invalid_passphrase_maps_to_value_error(mock_sign_repos, monkeypatch):
     """
     Validates: invalid passphrase / key format raises friendly ValueError.
     """
@@ -55,6 +58,7 @@ def test_sign_pdf_invalid_passphrase_maps_to_value_error(mock_sign_repos, monkey
 
     # Dùng default setup (Server Storage)
     mock_sign_repos.apply()
+    monkeypatch.setattr("app.services.sign_service.log_service.log_action", AsyncMock())
 
     sign_data = SimpleNamespace(
         document_id=mock_sign_repos.doc.id,
@@ -75,4 +79,4 @@ def test_sign_pdf_invalid_passphrase_maps_to_value_error(mock_sign_repos, monkey
     )
 
     with pytest.raises(ValueError, match="Mật khẩu giải mã khóa"):
-        svc.sign_pdf(db=None, user_id=1, sign_data=sign_data)
+        await svc.sign_pdf(db=None, user_id=1, sign_data=sign_data)

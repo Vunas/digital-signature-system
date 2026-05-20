@@ -1,51 +1,57 @@
 from fastapi import Depends, HTTPException, status, Request
-from sqlalchemy.orm import Session
-from jose import jwt, JWTError
-from typing import Generator
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+import jwt
+from typing import AsyncGenerator
 
-from app.db.session import SessionLocal
+from app.db.session import AsyncSessionLocal
 from app.core.config import settings
-from app.models.user import User
+from app.models.user import User  
 
 
-def get_db() -> Generator:
-    """Dependency cung cấp DB session cho mỗi request"""
-    try:
-        db = SessionLocal()
-        yield db
-    finally:
-        db.close()
+# ==========================================
+# PATTERN: CLEAN DI TRANSACTION
+# ==========================================
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
+    async with AsyncSessionLocal() as session:
+        try:
+            yield session
+            # Tự động commit sau khi request xử lý xong mà không có lỗi
+            await session.commit()
+        except Exception:
+            # Tự động rollback nếu có lỗi trong service/router
+            await session.rollback()
+            raise
 
 
-def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
+async def get_current_user(request: Request, db: AsyncSession = Depends(get_db)) -> User:
     """Lấy thông tin User hiện tại từ HttpOnly Cookie (Access Token)"""
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Không thể xác thực thông tin (Token không hợp lệ hoặc đã hết hạn)",
     )
 
-    # 1. Lấy token từ Cookie thay vì Header (OAuth2PasswordBearer)
     token = request.cookies.get("access_token")
     if not token:
         raise credentials_exception
 
-    # 2. Xóa tiền tố "Bearer " nếu có (do lúc login chúng ta set là "Bearer <token>")
     if token.startswith("Bearer "):
         token = token.replace("Bearer ", "")
 
-    # 3. Decode JWT Token
     try:
-        payload = jwt.decode(
-            token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
-        )
+        # Dùng PyJWT thay cho jose
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         username: str = payload.get("sub")
         if username is None:
             raise credentials_exception
-    except JWTError:
+    except jwt.PyJWTError:
         raise credentials_exception
 
-    # 4. Kiểm tra user trong DB
-    user = db.query(User).filter(User.username == username).first()
+    # Chuẩn truy vấn SQLAlchemy 2.0 (Async)
+    stmt = select(User).where(User.username == username)
+    result = await db.execute(stmt)
+    user = result.scalar_one_or_none()
+
     if user is None or not user.is_active:
         raise credentials_exception
 

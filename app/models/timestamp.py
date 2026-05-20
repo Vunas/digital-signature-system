@@ -1,63 +1,28 @@
-from sqlalchemy import (
-    Column,
-    Integer,
-    String,
-    DateTime,
-    ForeignKey,
-    LargeBinary,
-    Text,
-    Enum,
-    Boolean,
-)
+from datetime import datetime
+from typing import Optional, TYPE_CHECKING
+from sqlalchemy import String, DateTime, ForeignKey, Text, LargeBinary
 from sqlalchemy.sql import func
-from sqlalchemy.orm import relationship
-import enum
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+
 from app.db.base import Base
+
+if TYPE_CHECKING:
+    from app.models.signature import Signature
 
 
 class Timestamp(Base):
+    """Lưu trữ lịch sử Time Stamping Authority (TSA) nhúng trong chữ ký"""
+
     __tablename__ = "timestamps"
 
-    id = Column(Integer, primary_key=True, index=True)
-    signature_id = Column(Integer, ForeignKey("signatures.id", ondelete="CASCADE"))
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    signature_id: Mapped[int] = mapped_column(ForeignKey("signatures.id", ondelete="CASCADE"))
 
-    timestamp_token = Column(LargeBinary)
-    hashed_data = Column(Text)
-    tsa_name = Column(String(100))
+    timestamp_token: Mapped[Optional[bytes]] = mapped_column(LargeBinary)
+    hashed_data: Mapped[Optional[str]] = mapped_column(Text)
+    tsa_name: Mapped[Optional[str]] = mapped_column(String(100))
 
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
-    signature = relationship("Signature", back_populates="timestamps")
-
-
-class VerifyLog(Base):
-    __tablename__ = "verify_logs"
-
-    id = Column(Integer, primary_key=True, index=True)
-    document_id = Column(Integer, ForeignKey("documents.id"))
-    signature_id = Column(Integer, ForeignKey("signatures.id"))
-
-    is_valid = Column(Boolean)
-    message = Column(Text)
-
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-
-
-class LogLevel(str, enum.Enum):
-    INFO = "INFO"
-    WARNING = "WARNING"
-    ERROR = "ERROR"
-
-
-class Log(Base):
-    __tablename__ = "logs"
-
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"))
-
-    action = Column(String(50))
-    level = Column(Enum(LogLevel), default=LogLevel.INFO)
-    ip_address = Column(String(50))
-    description = Column(Text)
-
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    signature: Mapped["Signature"] = relationship(back_populates="timestamps")

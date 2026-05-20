@@ -1,18 +1,20 @@
 import pytest
-
+from sqlalchemy import select
 from app.models.user import User
+
+pytestmark = pytest.mark.asyncio
+
 
 
 @pytest.mark.integration
-def test_generate_key_endpoint_uses_dependency_overrides(
+async def test_generate_key_endpoint_uses_dependency_overrides(
     client_full, db_session, override_current_user_full
 ):
     # Ensure the overridden current user exists in DB if any code queries it later
-    db_user = (
-        db_session.query(User)
-        .filter(User.username == override_current_user_full.username)
-        .first()
+    result = await db_session.execute(
+        select(User).where(User.username == override_current_user_full.username)
     )
+    db_user = result.scalar_one_or_none()
 
     if not db_user:
         db_user = User(
@@ -22,7 +24,7 @@ def test_generate_key_endpoint_uses_dependency_overrides(
             is_active=True,
         )
         db_session.add(db_user)
-        db_session.commit()
+        await db_session.commit()
 
     payload = {
         "key_name": "My Test Key",
@@ -32,7 +34,7 @@ def test_generate_key_endpoint_uses_dependency_overrides(
         "passphrase": None,
     }
 
-    res = client_full.post("/api/keys/", json=payload)
+    res = await client_full.post("/api/keys/", json=payload)
 
     assert res.status_code == 200, res.text
     data = res.json()

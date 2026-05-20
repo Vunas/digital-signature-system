@@ -1,10 +1,12 @@
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import pytest
+import jwt
 from fastapi import HTTPException, Request
-from jose import JWTError
-
 from app.core.dependencies import get_current_user
+
+pytestmark = pytest.mark.asyncio
 
 
 def _build_request(cookies: dict):
@@ -20,31 +22,31 @@ def _build_request(cookies: dict):
 
 
 class TestCoreDependencies:
-    def test_get_current_user_missing_token_raises_401(self):
+    async def test_get_current_user_missing_token_raises_401(self):
         # Arrange
         request = _build_request({})
         db = SimpleNamespace()
 
         # Act / Assert
         with pytest.raises(HTTPException) as exc:
-            get_current_user(request=request, db=db)
+            await get_current_user(request=request, db=db)
         assert exc.value.status_code == 401
 
-    def test_get_current_user_invalid_jwt_raises_401(self, monkeypatch):
+    async def test_get_current_user_invalid_jwt_raises_401(self, monkeypatch):
         # Arrange
         request = _build_request({"access_token": "Bearer bad"})
         db = SimpleNamespace()
         monkeypatch.setattr(
             "app.core.dependencies.jwt.decode",
-            lambda *args, **kwargs: (_ for _ in ()).throw(JWTError("bad")),
+            lambda *args, **kwargs: (_ for _ in ()).throw(jwt.PyJWTError("bad")),
         )
 
         # Act / Assert
         with pytest.raises(HTTPException) as exc:
-            get_current_user(request=request, db=db)
+            await get_current_user(request=request, db=db)
         assert exc.value.status_code == 401
 
-    def test_get_current_user_payload_without_sub_raises_401(self, monkeypatch):
+    async def test_get_current_user_payload_without_sub_raises_401(self, monkeypatch):
         # Arrange
         request = _build_request({"access_token": "Bearer ok"})
         db = SimpleNamespace()
@@ -55,21 +57,20 @@ class TestCoreDependencies:
 
         # Act / Assert
         with pytest.raises(HTTPException) as exc:
-            get_current_user(request=request, db=db)
+            await get_current_user(request=request, db=db)
         assert exc.value.status_code == 401
 
-    def test_get_current_user_inactive_user_raises_401(self, monkeypatch):
+    async def test_get_current_user_inactive_user_raises_401(self, monkeypatch):
         # Arrange
         request = _build_request({"access_token": "Bearer ok"})
 
-        class DummyQuery:
-            def filter(self, *args, **kwargs):
-                return self
-
-            def first(self):
-                return SimpleNamespace(username="alice", is_active=False)
-
-        db = SimpleNamespace(query=lambda model: DummyQuery())
+        db = SimpleNamespace(
+            execute=AsyncMock(
+                return_value=SimpleNamespace(
+                    scalar_one_or_none=lambda: SimpleNamespace(username="alice", is_active=False)
+                )
+            )
+        )
 
         monkeypatch.setattr(
             "app.core.dependencies.jwt.decode",
@@ -78,29 +79,26 @@ class TestCoreDependencies:
 
         # Act / Assert
         with pytest.raises(HTTPException) as exc:
-            get_current_user(request=request, db=db)
+            await get_current_user(request=request, db=db)
         assert exc.value.status_code == 401
 
-    def test_get_current_user_valid_token_returns_user(self, monkeypatch):
+    async def test_get_current_user_valid_token_returns_user(self, monkeypatch):
         # Arrange
         request = _build_request({"access_token": "Bearer ok"})
         expected_user = SimpleNamespace(username="alice", is_active=True)
 
-        class DummyQuery:
-            def filter(self, *args, **kwargs):
-                return self
-
-            def first(self):
-                return expected_user
-
-        db = SimpleNamespace(query=lambda model: DummyQuery())
+        db = SimpleNamespace(
+            execute=AsyncMock(
+                return_value=SimpleNamespace(scalar_one_or_none=lambda: expected_user)
+            )
+        )
         monkeypatch.setattr(
             "app.core.dependencies.jwt.decode",
             lambda *args, **kwargs: {"sub": "alice"},
         )
 
         # Act
-        user = get_current_user(request=request, db=db)
+        user = await get_current_user(request=request, db=db)
 
         # Assert
         assert user == expected_user

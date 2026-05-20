@@ -1,16 +1,19 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from app.models.signature import Signature
 
 
 class SignatureRepository:
-    def get_by_document(self, db: Session, document_id: int):
-        return db.query(Signature).filter(Signature.document_id == document_id).all()
+    async def get_by_document(self, db: AsyncSession, document_id: int):
+        stmt = select(Signature).where(Signature.document_id == document_id)
+        result = await db.execute(stmt)
+        return result.scalars().all()
 
-    def create(self, db: Session, **kwargs):
+    async def create(self, db: AsyncSession, **kwargs):
         db_obj = Signature(**kwargs)
         db.add(db_obj)
-        db.commit()
-        db.refresh(db_obj)
+        await db.flush()  
+        await db.refresh(db_obj)
         return db_obj
 
 

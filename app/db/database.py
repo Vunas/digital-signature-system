@@ -1,10 +1,7 @@
 from app.db.base import Base
 from app.db.session import engine
 
-
-def init_db():
-    """
-    Hàm này tạo tất cả các bảng dựa trên models nếu chúng chưa tồn tại.
-    """
-    Base.metadata.create_all(bind=engine)
-    print("✅ Database initialized successfully.")
+async def init_db():
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    print("✅ Database initialized successfully (Async).")

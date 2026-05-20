@@ -1,10 +1,12 @@
 import hashlib
-import asyncio
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import pytest
-
 from app.services.file_service import FileService
+
+pytestmark = pytest.mark.asyncio
+
 
 
 class DummyUploadFile:
@@ -23,7 +25,7 @@ class DummyUploadFile:
 
 
 @pytest.mark.unit
-def test_upload_document_hash_and_size_are_computed(monkeypatch):
+async def test_upload_document_hash_and_size_are_computed(monkeypatch):
     """
     Validates: FileService tính toán chính xác sha256 hash và file_size
     dựa trên bytes đọc được từ file upload.
@@ -35,18 +37,16 @@ def test_upload_document_hash_and_size_are_computed(monkeypatch):
         assert content_type == "application/pdf"
         return f"local:/tmp/{filename}"
 
-    def fake_doc_create(db, **kwargs):
-        created_db_record.update(kwargs)
-        return SimpleNamespace(**kwargs, id=1)
-
     monkeypatch.setattr("app.services.file_service.save_file", fake_save_file)
     monkeypatch.setattr(
-        "app.services.file_service.document_repo.create", fake_doc_create
+        "app.services.file_service.document_repo.create",
+        AsyncMock(side_effect=lambda db, **kwargs: created_db_record.update(kwargs) or SimpleNamespace(**kwargs, id=1)),
     )
+    monkeypatch.setattr("app.services.file_service.log_service.log_action", AsyncMock())
 
     svc = FileService()
     f = DummyUploadFile("doc.pdf", "application/pdf", b"ABC")
-    doc = asyncio.run(svc.upload_document(db=None, user_id=10, file=f))
+    doc = await svc.upload_document(db=object(), user_id=10, file=f)
 
     assert doc.user_id == 10
     assert created_db_record["file_size"] == 3
@@ -56,7 +56,7 @@ def test_upload_document_hash_and_size_are_computed(monkeypatch):
 
 
 @pytest.mark.unit
-def test_upload_document_empty_file_edge_case(monkeypatch):
+async def test_upload_document_empty_file_edge_case(monkeypatch):
     """
     Validates: Xử lý an toàn file rỗng (0 bytes upload).
     Đảm bảo sinh ra sha256 của chuỗi rỗng và size=0.
@@ -66,18 +66,16 @@ def test_upload_document_empty_file_edge_case(monkeypatch):
     async def fake_save_file(content: bytes, filename: str, content_type: str) -> str:
         return f"local:/tmp/{filename}"
 
-    def fake_doc_create(db, **kwargs):
-        created_db_record.update(kwargs)
-        return SimpleNamespace(**kwargs, id=1)
-
     monkeypatch.setattr("app.services.file_service.save_file", fake_save_file)
     monkeypatch.setattr(
-        "app.services.file_service.document_repo.create", fake_doc_create
+        "app.services.file_service.document_repo.create",
+        AsyncMock(side_effect=lambda db, **kwargs: created_db_record.update(kwargs) or SimpleNamespace(**kwargs, id=1)),
     )
+    monkeypatch.setattr("app.services.file_service.log_service.log_action", AsyncMock())
 
     svc = FileService()
     f = DummyUploadFile("empty.pdf", "application/pdf", b"")
-    asyncio.run(svc.upload_document(db=None, user_id=1, file=f))
+    await svc.upload_document(db=object(), user_id=1, file=f)
 
     assert created_db_record["file_size"] == 0
     assert created_db_record["file_hash"] == hashlib.sha256(b"").hexdigest()

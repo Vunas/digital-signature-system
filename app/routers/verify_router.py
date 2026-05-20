@@ -1,11 +1,13 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 import os
-import shutil
+import aiofiles
 
+from app.core.dependencies import get_db, get_current_user
+from app.models.user import User
 from app.schemas.verify_schema import VerifyResponse
 from app.services.verify_service import verify_service
-from app.core.dependencies import get_db
+from app.utils.logger import logger
 
 router = APIRouter(prefix="/api/verify", tags=["Verification"])
 
@@ -13,31 +15,37 @@ router = APIRouter(prefix="/api/verify", tags=["Verification"])
 @router.post("/pdf", response_model=VerifyResponse)
 async def verify_uploaded_pdf(
     file: UploadFile = File(...),
-    db: Session = Depends(get_db),  # Bổ sung DB Session để dò Root CA
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """
-    Xác thực một file PDF xem đã được ký chưa, có bị chỉnh sửa không
-    và đối chiếu gốc chữ ký với Root CA trong Database.
+    Xác thực một file PDF xem đã được ký chưa, có bị chỉnh sửa không.
     """
     if file.content_type != "application/pdf":
-        raise HTTPException(
-            status_code=400, detail="Vui lòng tải lên file định dạng PDF."
-        )
+        raise HTTPException(status_code=400, detail="Vui lòng tải lên file định dạng PDF.")
 
     temp_path = f"temp_{file.filename}"
     try:
-        # Reset con trỏ file về đầu (đảm bảo file không bị lỗi 0 bytes)
+        logger.info(
+            f"User {current_user.username} đang thực hiện xac thực tài liệu PDF: {file.filename}"
+        )
         file.file.seek(0)
 
-        # Lưu tạm file để pyHanko đọc
-        with open(temp_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+        # Sử dụng aiofiles để lưu file bất đồng bộ (tránh block I/O)
+        async with aiofiles.open(temp_path, "wb") as out_file:
+            content = await file.read()
+            await out_file.write(content)
 
-        # Xác thực file (Truyền thêm db vào)
-        result = verify_service.verify_pdf_signature(db, temp_path)
+        # Xác thực file (Hệ thống tự log vào Audit)
+        result = await verify_service.verify_pdf_signature(db, temp_path, current_user.id)
+
+        await db.commit()  
         return result
 
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
     finally:
-        # Xóa file tạm sau khi kiểm tra xong để giải phóng ổ cứng
         if os.path.exists(temp_path):
             os.remove(temp_path)

@@ -1,33 +1,30 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from app.models.document import Document, DocumentStatus
 
 
 class DocumentRepository:
-    def get_by_id(self, db: Session, doc_id: int, user_id: int):
-        return (
-            db.query(Document)
-            .filter(Document.id == doc_id, Document.user_id == user_id)
-            .first()
-        )
+    async def get_by_id(self, db: AsyncSession, doc_id: int, user_id: int):
+        stmt = select(Document).where(Document.id == doc_id, Document.user_id == user_id)
+        result = await db.execute(stmt)
+        return result.scalar_one_or_none()
 
-    def get_all_by_user(self, db: Session, user_id: int):
-        return (
-            db.query(Document)
-            .filter(Document.user_id == user_id)
-            .order_by(Document.created_at.desc())
-            .all()
+    async def get_all_by_user(self, db: AsyncSession, user_id: int):
+        stmt = (
+            select(Document).where(Document.user_id == user_id).order_by(Document.created_at.desc())
         )
+        result = await db.execute(stmt)
+        return result.scalars().all()
 
-    def create(self, db: Session, **kwargs):
+    async def create(self, db: AsyncSession, **kwargs):
         db_obj = Document(**kwargs)
         db.add(db_obj)
-        db.commit()
-        db.refresh(db_obj)
+        await db.flush()
         return db_obj
 
-    def update_status(
+    async def update_status(
         self,
-        db: Session,
+        db: AsyncSession,
         db_obj: Document,
         status: DocumentStatus,
         signed_path: str = None,
@@ -39,8 +36,7 @@ class DocumentRepository:
         if signed_hash:
             db_obj.signed_file_hash = signed_hash
 
-        db.commit()
-        db.refresh(db_obj)
+        await db.flush()
         return db_obj
 
 

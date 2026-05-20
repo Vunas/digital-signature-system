@@ -2,10 +2,13 @@ import sys
 import os
 import hashlib
 import random
+import asyncio
 from datetime import datetime, timedelta, UTC
 
-from sqlalchemy.orm import Session
-from app.db.session import SessionLocal, engine
+from sqlalchemy import select, delete
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.db.session import AsyncSessionLocal, engine
 from app.db.base import Base
 
 # Import Models
@@ -14,7 +17,9 @@ from app.models.document import Document
 from app.models.certificate import Certificate, CertificateChain, CertType
 from app.models.key import Key
 from app.models.signature import Signature
-from app.models.timestamp import Timestamp, Log, VerifyLog
+from app.models.timestamp import Timestamp
+from app.models.audit_log import AuditLog
+from app.models.verify_log import VerifyLog
 
 # Import Services & Schemas
 from app.core.security import get_password_hash
@@ -30,8 +35,9 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 # ==========================================
 # 1. SEED USERS
 # ==========================================
-def seed_users(db: Session):
+async def seed_users(db: AsyncSession):
     print("👤 Đang tạo Users...")
+
     users_data = [
         {"username": "admin", "pass": "123456"},
         {"username": "giamdoc_nguyen", "pass": "123456"},
@@ -49,33 +55,40 @@ def seed_users(db: Session):
     ]
 
     created_users = {}
+
     for u in users_data:
         user = User(
             username=u["username"],
             password_hash=get_password_hash(u["pass"]),
             is_active=True,
         )
+
         db.add(user)
-        db.commit()
-        db.refresh(user)
+
+        await db.commit()
+        await db.refresh(user)
+
         created_users[u["username"]] = user
+
         print(f"  -> Đã tạo user: {user.username}")
 
     return created_users
 
 
 # ==========================================
-# 2. SEED PKI (CA, TSA & User Certs)
+# 2. SEED PKI
 # ==========================================
-def seed_pki(db: Session, users: dict):
-    print("🔑 Đang tạo Hệ thống Khóa & Chứng chỉ (PKI)...")
+async def seed_pki(db: AsyncSession, users: dict):
+    print("🔑 Đang tạo Hệ thống PKI...")
+
     admin = users["admin"]
     giamdoc = users["giamdoc_nguyen"]
 
-    # 2.1. TẠO ROOT CA
-    root_key = key_service.create_key(
+    # ROOT CA
+    root_key = await key_service.create_key(
         db, admin.id, KeyCreate(key_name="Root CA Key", key_size=2048)
     )
+
     root_cert_data = CertificateCreate(
         cert_name="SecureSign Root CA",
         key_id=root_key.id,
@@ -84,7 +97,9 @@ def seed_pki(db: Session, users: dict):
         valid_days=3650,
         cert_type=CertType.ROOT,
     )
-    root_cert = certificate_service.create_root_ca(db, admin.id, root_cert_data)
+
+    root_cert = await certificate_service.create_root_ca(db, admin.id, root_cert_data)
+
     db.add(
         CertificateChain(
             certificate_id=root_cert.id,
@@ -92,12 +107,14 @@ def seed_pki(db: Session, users: dict):
             level=0,
         )
     )
+
     print("  -> Đã tạo Root CA")
 
-    # 2.2. TẠO INTERMEDIATE CA
-    inter_key = key_service.create_key(
+    # INTERMEDIATE CA
+    inter_key = await key_service.create_key(
         db, admin.id, KeyCreate(key_name="Intermediate CA Key", key_size=2048)
     )
+
     inter_cert_data = CertificateCreate(
         cert_name="SecureSign Intermediate CA",
         key_id=inter_key.id,
@@ -106,9 +123,14 @@ def seed_pki(db: Session, users: dict):
         valid_days=1825,
         cert_type=CertType.INTERMEDIATE,
     )
-    inter_cert = certificate_service.create_signed_cert(
-        db, admin.id, inter_cert_data, issuer_cert=root_cert
+
+    inter_cert = await certificate_service.create_signed_cert(
+        db,
+        admin.id,
+        inter_cert_data,
+        issuer_cert=root_cert,
     )
+
     db.add(
         CertificateChain(
             certificate_id=inter_cert.id,
@@ -116,12 +138,14 @@ def seed_pki(db: Session, users: dict):
             level=1,
         )
     )
+
     print("  -> Đã tạo Intermediate CA")
 
-    # 2.3. TẠO INTERNAL TSA CERTIFICATE
-    tsa_key = key_service.create_key(
+    # TSA CERT
+    tsa_key = await key_service.create_key(
         db, admin.id, KeyCreate(key_name="Internal TSA Key", key_size=2048)
     )
+
     tsa_cert_data = CertificateCreate(
         cert_name="SecureSign Internal TSA",
         key_id=tsa_key.id,
@@ -130,10 +154,16 @@ def seed_pki(db: Session, users: dict):
         valid_days=1825,
         cert_type=CertType.END_ENTITY,
     )
-    tsa_cert = certificate_service.create_signed_cert(
-        db, admin.id, tsa_cert_data, issuer_cert=inter_cert
+
+    tsa_cert = await certificate_service.create_signed_cert(
+        db,
+        admin.id,
+        tsa_cert_data,
+        issuer_cert=inter_cert,
     )
+
     tsa_cert.purpose = "timestamping"
+
     db.add(
         CertificateChain(
             certificate_id=tsa_cert.id,
@@ -141,13 +171,16 @@ def seed_pki(db: Session, users: dict):
             level=2,
         )
     )
-    db.commit()
-    print("  -> Đã tạo Internal TSA Certificate")
 
-    # 2.4. TẠO CHỨNG CHỈ CHO GIÁM ĐỐC
-    user_key = key_service.create_key(
+    await db.commit()
+
+    print("  -> Đã tạo TSA Certificate")
+
+    # USER CERT
+    user_key = await key_service.create_key(
         db, giamdoc.id, KeyCreate(key_name="Khóa Ký Hợp Đồng", key_size=2048)
     )
+
     user_cert_data = CertificateCreate(
         cert_name="Chứng chỉ Giám Đốc Nguyễn",
         key_id=user_key.id,
@@ -156,10 +189,16 @@ def seed_pki(db: Session, users: dict):
         valid_days=365,
         cert_type=CertType.END_ENTITY,
     )
-    user_cert = certificate_service.create_signed_cert(
-        db, giamdoc.id, user_cert_data, issuer_cert=inter_cert
+
+    user_cert = await certificate_service.create_signed_cert(
+        db,
+        giamdoc.id,
+        user_cert_data,
+        issuer_cert=inter_cert,
     )
+
     user_cert.purpose = "document_signing"
+
     db.add(
         CertificateChain(
             certificate_id=user_cert.id,
@@ -167,8 +206,10 @@ def seed_pki(db: Session, users: dict):
             level=2,
         )
     )
-    db.commit()
-    print("  -> Đã tạo Chứng chỉ người dùng (Giám đốc)")
+
+    await db.commit()
+
+    print("  -> Đã tạo chứng chỉ người dùng")
 
     return {"user_key": user_key, "user_cert": user_cert}
 
@@ -176,15 +217,16 @@ def seed_pki(db: Session, users: dict):
 # ==========================================
 # 3. SEED DOCUMENTS
 # ==========================================
-def seed_documents(db: Session, users: dict):
-    print("📄 Đang tạo dữ liệu Văn bản mẫu...")
+async def seed_documents(db: AsyncSession, users: dict):
+    print("📄 Đang tạo Documents...")
+
     upload_dir = "storage/uploads"
     os.makedirs(upload_dir, exist_ok=True)
 
     giamdoc = users["giamdoc_nguyen"]
     nhanvien = users["nhanvien_tran"]
 
-    minimal_pdf = b"%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>\nendobj\nxref\n0 4\n0000000000 65535 f \n0000000009 00000 n \n0000000058 00000 n \n0000000115 00000 n \ntrailer\n<< /Size 4 /Root 1 0 R >>\nstartxref\n188\n%%EOF"
+    minimal_pdf = b"%PDF-1.4 fake"
 
     docs_info = [
         {
@@ -205,8 +247,10 @@ def seed_documents(db: Session, users: dict):
     ]
 
     created_docs = []
+
     for doc in docs_info:
         file_hash = hashlib.sha256(minimal_pdf + doc["name"].encode()).hexdigest()
+
         file_path = os.path.join(upload_dir, doc["name"])
 
         with open(file_path, "wb") as f:
@@ -223,22 +267,33 @@ def seed_documents(db: Session, users: dict):
             signed_file_hash=file_hash if doc["status"] != "UPLOADED" else None,
             status=doc["status"],
         )
+
         db.add(new_doc)
         created_docs.append(new_doc)
 
-    db.commit()
-    print(f"  -> Đã tạo {len(created_docs)} tài liệu.")
+    await db.commit()
+
+    for doc in created_docs:
+        await db.refresh(doc)
+
+    print(f"  -> Đã tạo {len(created_docs)} tài liệu")
+
     return created_docs
 
 
 # ==========================================
-# 4. SEED SIGNATURES & TIMESTAMPS
+# 4. SIGNATURES
 # ==========================================
-def seed_signatures(db: Session, docs: list, pki_data: dict, users: dict):
-    print("✍️ Đang tạo dữ liệu Chữ ký & Timestamp...")
+async def seed_signatures(
+    db: AsyncSession,
+    docs: list,
+    pki_data: dict,
+    users: dict,
+):
+    print("✍️ Đang tạo Signatures...")
+
     giamdoc = users["giamdoc_nguyen"]
 
-    # Chỉ lấy các doc đã ký hoặc verified
     signed_docs = [d for d in docs if d.status in ["SIGNED", "VERIFIED"]]
 
     for doc in signed_docs:
@@ -247,7 +302,7 @@ def seed_signatures(db: Session, docs: list, pki_data: dict, users: dict):
             key_id=pki_data["user_key"].id,
             certificate_id=pki_data["user_cert"].id,
             user_id=giamdoc.id,
-            signature_value=b"fake_signature_bytes_for_seed",
+            signature_value=b"fake_signature",
             hash_algorithm="SHA-256",
             signature_algorithm="RSA",
             visible_signature=True,
@@ -255,116 +310,132 @@ def seed_signatures(db: Session, docs: list, pki_data: dict, users: dict):
             signer_reason="Đã phê duyệt",
             signer_location="TP. Hồ Chí Minh",
         )
-        db.add(sig)
-        db.commit()
-        db.refresh(sig)
 
-        # Tạo giả lập Timestamp đi kèm chữ ký đó
+        db.add(sig)
+
+        await db.commit()
+        await db.refresh(sig)
+
         tsa = Timestamp(
             signature_id=sig.id,
-            timestamp_token=b"fake_tsa_token_bytes",
+            timestamp_token=b"fake_tsa_token",
             hashed_data="fake_hash_data",
             tsa_name="SecureSign Internal TSA",
         )
+
         db.add(tsa)
 
-    db.commit()
-    print("  -> Đã tạo dữ liệu Chữ ký và TSA thành công.")
+    await db.commit()
+
+    print("  -> Đã tạo Signatures & TSA")
 
 
 # ==========================================
-# 5. SEED LOGS & VERIFY LOGS
+# 5. LOGS
 # ==========================================
-def seed_logs(db: Session, docs: list, users: dict):
-    print("📊 Đang tạo dữ liệu Logs & Audit...")
+async def seed_logs(
+    db: AsyncSession,
+    docs: list,
+    users: dict,
+):
+    print("📊 Đang tạo Logs...")
 
-    # Lấy tất cả signature đã tạo
-    signatures = db.query(Signature).all()
+    result = await db.execute(select(Signature))
+    signatures = result.scalars().all()
 
     if not signatures:
-        print("⚠️ Không có signature nào để tạo verify log")
+        print("⚠️ Không có signature nào")
         return
 
-    # 5.1 Verify Logs
     verified_docs = [d for d in docs if d.status == "VERIFIED"]
 
     for doc in verified_docs:
-        sig = random.choice(signatures)  # 👉 chọn signature thật
+        sig = random.choice(signatures)
 
         v_log = VerifyLog(
             document_id=doc.id,
             signature_id=sig.id,
             is_valid=True,
-            message="Chữ ký hợp lệ. Chứng chỉ toàn vẹn.",
+            message="Chữ ký hợp lệ",
             created_at=datetime.now(UTC) - timedelta(hours=random.randint(1, 48)),
         )
+
         db.add(v_log)
 
-    db.commit()
-    print("  -> Đã tạo Audit Logs và Verify Logs.")
+    await db.commit()
+
+    print("  -> Đã tạo Verify Logs")
 
 
 # ==========================================
-# MAIN EXECUTION
+# MAIN
 # ==========================================
-def run_seed(force=False):
-    print("🌱 BẮT ĐẦU QUÁ TRÌNH TẠO DỮ LIỆU MẪU (SEED DATA)...")
-    db = SessionLocal()
+async def run_seed(force=False):
+    print("🌱 BẮT ĐẦU SEED DATA...")
 
-    try:
-        # 1. Khởi tạo Schema
-        Base.metadata.create_all(bind=engine)
+    async with AsyncSessionLocal() as db:
+        try:
+            # CREATE TABLES
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
 
-        # 2. Kiểm tra tồn tại
-        admin = db.query(User).filter(User.username == "admin").first()
-        if admin and not force:
-            print("⚠️ Dữ liệu mẫu đã tồn tại. Dùng tham số --force để ghi đè.")
-            return
+            # CHECK ADMIN
+            result = await db.execute(select(User).where(User.username == "admin"))
 
-        # 3. Clean DB nếu Force = True
-        if force:
-            print("♻️ Xóa dữ liệu cũ (Cascade)...")
-            db.query(Log).delete()
-            db.query(VerifyLog).delete()
-            db.query(Timestamp).delete()
-            db.query(Signature).delete()
-            db.query(Document).delete()
-            db.query(CertificateChain).delete()
-            db.query(Certificate).delete()
-            db.query(Key).delete()
-            db.query(User).delete()
-            db.commit()
+            admin = result.scalar_one_or_none()
 
-        # 4. Thực thi từng Module
-        created_users = seed_users(db)
-        pki_data = seed_pki(db, created_users)
-        created_docs = seed_documents(db, created_users)
-        seed_signatures(db, created_docs, pki_data, created_users)
-        seed_logs(db, created_docs, created_users)
+            if admin and not force:
+                print("⚠️ Seed đã tồn tại. Dùng --force để ghi đè.")
+                return
 
-        print("-" * 50)
-        print("✅ HOÀN TẤT SEED DATA! HỆ THỐNG ĐÃ SẴN SÀNG.")
-        print("🚀 THÔNG TIN ĐĂNG NHẬP DEMO:")
-        print("  - Admin: admin / 123456")
-        print("  - Giám Đốc: giamdoc_nguyen / 123456")
-        print("  - Nhân Viên: nhanvien_tran / 123456")
-        print("  - Khác: user0->9 / 123456")
-        print("-" * 50)
+            # FORCE CLEAN
+            if force:
+                print("♻️ Xóa dữ liệu cũ...")
 
-    except Exception as e:
-        print(f"❌ Lỗi nghiêm trọng trong quá trình Seed: {e}")
-        db.rollback()
-    finally:
-        db.close()
+                await db.execute(delete(AuditLog))
+                await db.execute(delete(VerifyLog))
+                await db.execute(delete(Timestamp))
+                await db.execute(delete(Signature))
+                await db.execute(delete(Document))
+                await db.execute(delete(CertificateChain))
+                await db.execute(delete(Certificate))
+                await db.execute(delete(Key))
+                await db.execute(delete(User))
+
+                await db.commit()
+
+            # RUN SEED
+            created_users = await seed_users(db)
+
+            pki_data = await seed_pki(db, created_users)
+
+            created_docs = await seed_documents(db, created_users)
+
+            await seed_signatures(db, created_docs, pki_data, created_users)
+
+            await seed_logs(db, created_docs, created_users)
+
+            print("-" * 50)
+            print("✅ HOÀN TẤT SEED DATA")
+            print("🚀 Admin: admin / 123456")
+            print("🚀 Giám đốc: giamdoc_nguyen / 123456")
+            print("-" * 50)
+
+        except Exception as e:
+            await db.rollback()
+            print(f"❌ Lỗi seed: {e}")
+
+        finally:
+            await db.close()
 
 
 if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--force", action="store_true", help="Xoá dữ liệu cũ và seed lại toàn bộ"
-    )
+
+    parser.add_argument("--force", action="store_true", help="Xóa dữ liệu cũ và seed lại")
+
     args = parser.parse_args()
 
-    run_seed(force=args.force)
+    asyncio.run(run_seed(force=args.force))

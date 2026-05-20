@@ -1,57 +1,42 @@
-from sqlalchemy import (
-    Column,
-    Integer,
-    String,
-    Boolean,
-    DateTime,
-    ForeignKey,
-    LargeBinary,
-    Enum,
-    Text,
-)
+from datetime import datetime
+from typing import List, Optional, TYPE_CHECKING
+from sqlalchemy import String, Boolean, DateTime, ForeignKey, Enum, Text
+from sqlalchemy.dialects.postgresql import BYTEA
 from sqlalchemy.sql import func
-from sqlalchemy.orm import relationship
-import enum
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from app.db.base import Base
+from app.models.enums import KeyStorageType, SignatureAlgo
 
-
-class KeyStorageType(str, enum.Enum):
-    server = "server"
-    usb_token = "usb_token"
-    hsm = "hsm"
-    local = "local"
-
-
-class SignatureAlgo(str, enum.Enum):
-    RSA = "RSA"
-    ECDSA = "ECDSA"
+if TYPE_CHECKING:
+    from app.models.user import User
+    from app.models.certificate import Certificate
 
 
 class Key(Base):
     __tablename__ = "keys"
 
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True)
-
-    key_name = Column(String(100))
-
-    # BYTEA trong Postgres tương đương LargeBinary trong SQLAlchemy
-    public_key = Column(LargeBinary, nullable=False)
-    private_key_encrypted = Column(LargeBinary, nullable=False)
-
-    key_size = Column(Integer, default=2048)
-    algorithm = Column(Enum(SignatureAlgo), default=SignatureAlgo.RSA)
-
-    storage_type = Column(Enum(KeyStorageType), default=KeyStorageType.server)
-    storage_provider = Column(String(50))
-
-    key_fingerprint = Column(Text)
-    is_revoked = Column(Boolean, default=False)
-
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    key_name: Mapped[Optional[str]] = mapped_column(String(100))
+    public_key: Mapped[bytes] = mapped_column(BYTEA, nullable=False)
+    private_key_encrypted: Mapped[bytes] = mapped_column(BYTEA, nullable=False)
+    key_size: Mapped[int] = mapped_column(default=2048)
+    algorithm: Mapped[SignatureAlgo] = mapped_column(Enum(SignatureAlgo), default=SignatureAlgo.RSA)
+    storage_type: Mapped[KeyStorageType] = mapped_column(
+        Enum(KeyStorageType), default=KeyStorageType.SERVER
+    )
+    storage_provider: Mapped[Optional[str]] = mapped_column(String(50))
+    key_fingerprint: Mapped[Optional[str]] = mapped_column(Text)
+    is_revoked: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     # Relationships
-    owner = relationship("User", back_populates="keys")
-    certificates = relationship(
-        "Certificate", back_populates="key", cascade="all, delete"
+    owner: Mapped["User"] = relationship(back_populates="keys")
+    certificates: Mapped[List["Certificate"]] = relationship(
+        back_populates="key", cascade="all, delete-orphan"
     )
+
+    def revoke_key(self) -> None:
+        """Đánh dấu khóa đã bị thu hồi/xóa bỏ, không cho phép ký văn bản mới"""
+        self.is_revoked = True

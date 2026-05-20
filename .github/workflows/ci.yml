@@ -14,6 +14,21 @@ jobs:
   test-and-lint:
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U test"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -33,15 +48,18 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          # Cài đặt thêm các công cụ hỗ trợ CI
           pip install pytest pytest-cov ruff mypy
 
       - name: Run Linter (Ruff)
         run: ruff check .
 
+      - name: Wait for DB
+        run: sleep 5
+
       # - name: Run Type Checker (MyPy)
       #   run: mypy app/
 
-      - name: Run Tests with Pytest
-        run: |
-          pytest --cov=app --cov-report=term-missing tests/
+      - name: Run Tests
+        env:
+          DATABASE_URL: postgresql+asyncpg://test:test@localhost:5432/test_db
+        run: pytest --cov=app --cov-report=term-missing tests/

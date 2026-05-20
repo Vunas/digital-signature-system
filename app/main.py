@@ -17,6 +17,7 @@ from app.routers import (
     document_router,
     dashboard_router,
     signature_router,
+    log_router,
 )
 
 # 2. KHỞI TẠO FASTAPI APP
@@ -56,6 +57,7 @@ app.include_router(verify_router.router)
 app.include_router(document_router.router)
 app.include_router(dashboard_router.router)
 app.include_router(signature_router.router)
+app.include_router(log_router.router)
 
 # ==========================================
 # 6. CÁC ROUTES PHỤC VỤ GIAO DIỆN (FRONTEND)
@@ -95,6 +97,11 @@ async def sign_page(request: Request):
 async def verify_page(request: Request):
     """Trang Xác Thực Chữ Ký"""
     return templates.TemplateResponse("verify.html", {"request": request})
+
+
+@app.get("/log", response_class=HTMLResponse, include_in_schema=False)
+async def log_page(request: Request):
+    return templates.TemplateResponse("log.html", {"request": request})
 
 
 # 7. KHỞI CHẠY SERVER BẰNG UVICORN

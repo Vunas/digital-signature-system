@@ -1,10 +1,15 @@
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
+import pytest
 from app.services.certificate_service import CertificateService
+
+pytestmark = pytest.mark.asyncio
+
 
 
 class TestCertificateServiceSignedCert:
-    def test_create_signed_cert_intermediate_success_calls_repo_create(
+    async def test_create_signed_cert_intermediate_success_calls_repo_create(
         self, monkeypatch
     ):
         # Arrange
@@ -27,9 +32,9 @@ class TestCertificateServiceSignedCert:
 
         monkeypatch.setattr(
             "app.services.certificate_service.key_repo.get_by_id",
-            lambda db, key_id, user_id: (
+            AsyncMock(side_effect=lambda db, key_id, user_id: (
                 user_key_record if key_id == 2 else issuer_key_record
-            ),
+            )),
         )
         monkeypatch.setattr(
             "app.services.certificate_service.load_pem_public_key",
@@ -86,11 +91,12 @@ class TestCertificateServiceSignedCert:
         created = {}
         monkeypatch.setattr(
             "app.services.certificate_service.certificate_repo.create",
-            lambda **kwargs: created.update(kwargs) or SimpleNamespace(id=55),
+            AsyncMock(side_effect=lambda **kwargs: created.update(kwargs) or SimpleNamespace(id=55)),
         )
+        monkeypatch.setattr("app.services.certificate_service.log_service.log_action", AsyncMock())
 
         # Act
-        out = service.create_signed_cert(
+        out = await service.create_signed_cert(
             db=object(),
             user_id=2,
             cert_data=cert_data,

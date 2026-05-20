@@ -1,51 +1,44 @@
-from sqlalchemy import (
-    Column,
-    Integer,
-    String,
-    Boolean,
-    DateTime,
-    ForeignKey,
-    LargeBinary,
-    Enum,
-    Text,
-)
+from datetime import datetime
+from typing import List, Optional, TYPE_CHECKING
+from sqlalchemy import String, Boolean, DateTime, ForeignKey, Enum, Text
+from sqlalchemy.dialects.postgresql import BYTEA
 from sqlalchemy.sql import func
-from sqlalchemy.orm import relationship
-import enum
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from app.db.base import Base
-from .key import SignatureAlgo
+from app.models.enums import SignatureAlgo, HashAlgo
 
-
-class HashAlgo(str, enum.Enum):
-    SHA_256 = "SHA-256"
-    SHA_512 = "SHA-512"
-
+if TYPE_CHECKING:
+     from app.models.document import Document
+     from app.models.timestamp import Timestamp
 
 class Signature(Base):
     __tablename__ = "signatures"
 
-    id = Column(Integer, primary_key=True, index=True)
-    document_id = Column(
-        Integer, ForeignKey("documents.id", ondelete="CASCADE"), index=True
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    document_id: Mapped[int] = mapped_column(
+        ForeignKey("documents.id", ondelete="CASCADE"), index=True
     )
-    key_id = Column(Integer, ForeignKey("keys.id", ondelete="CASCADE"))
-    certificate_id = Column(Integer, ForeignKey("certificates.id"))
-    user_id = Column(Integer, ForeignKey("users.id"), index=True)
+    key_id: Mapped[int] = mapped_column(ForeignKey("keys.id", ondelete="CASCADE"))
+    certificate_id: Mapped[Optional[int]] = mapped_column(ForeignKey("certificates.id"))
+    user_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), index=True)
 
-    signature_value = Column(LargeBinary)
+    signature_value: Mapped[Optional[bytes]] = mapped_column(BYTEA)
 
-    hash_algorithm = Column(Enum(HashAlgo), default=HashAlgo.SHA_256)
-    signature_algorithm = Column(Enum(SignatureAlgo), default=SignatureAlgo.RSA)
+    hash_algorithm: Mapped[HashAlgo] = mapped_column(Enum(HashAlgo), default=HashAlgo.SHA_256)
+    signature_algorithm: Mapped[SignatureAlgo] = mapped_column(
+        Enum(SignatureAlgo), default=SignatureAlgo.RSA
+    )
 
-    visible_signature = Column(Boolean, default=True)
-    signer_name = Column(String(100))
-    signer_reason = Column(Text)
-    signer_location = Column(String(100))
+    visible_signature: Mapped[bool] = mapped_column(Boolean, default=True)
+    signer_name: Mapped[Optional[str]] = mapped_column(String(100))
+    signer_reason: Mapped[Optional[str]] = mapped_column(Text)
+    signer_location: Mapped[Optional[str]] = mapped_column(String(100))
 
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     # Relationships
-    document = relationship("Document", back_populates="signatures")
-    timestamps = relationship(
-        "Timestamp", back_populates="signature", cascade="all, delete"
+    document: Mapped["Document"] = relationship(back_populates="signatures")
+    timestamps: Mapped[List["Timestamp"]] = relationship(
+        back_populates="signature", cascade="all, delete-orphan"
     )

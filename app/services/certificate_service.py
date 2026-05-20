@@ -1,4 +1,5 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from cryptography import x509
 from cryptography.x509.oid import NameOID, ExtendedKeyUsageOID
 from cryptography.hazmat.primitives import hashes
@@ -13,39 +14,35 @@ from app.schemas.certificate_schema import CertificateCreate
 from app.repositories.certificate_repo import certificate_repo
 from app.repositories.key_repo import key_repo
 from app.services.crypto.aes_service import aes_service
-from app.models.certificate import Certificate, CertType
+from app.models.certificate import Certificate
+
+# Centralized Enums
+from app.models.enums import CertType, TargetResourceType
+from app.services.log_service import log_service
 
 
 class CertificateService:
     def _get_private_key(self, key_record, passphrase: str = None, raw_key: str = None):
-        """Hàm phụ trợ lấy Private Key từ DB/Raw"""
         if key_record.storage_type == "local" or (
-            hasattr(key_record.storage_type, "value")
-            and key_record.storage_type.value == "local"
+            hasattr(key_record.storage_type, "value") and key_record.storage_type.value == "local"
         ):
             if not raw_key:
-                raise ValueError(
-                    "Bắt buộc phải có Private Key thô để ký chứng chỉ Local."
-                )
+                raise ValueError("Bắt buộc phải có Private Key thô để ký chứng chỉ Local.")
             return load_pem_private_key(raw_key.encode("utf-8"), password=None)
         else:
             if passphrase:
                 try:
                     return load_pem_private_key(
-                        key_record.private_key_encrypted,
-                        password=passphrase.encode("utf-8"),
+                        key_record.private_key_encrypted, password=passphrase.encode("utf-8")
                     )
                 except Exception:
                     raise ValueError("Passphrase giải mã khóa không chính xác!")
             else:
-                priv_key_bytes = aes_service.decrypt_key(
-                    key_record.private_key_encrypted
-                )
+                priv_key_bytes = aes_service.decrypt_key(key_record.private_key_encrypted)
                 return load_pem_private_key(priv_key_bytes, password=None)
 
-    def create_root_ca(self, db: Session, user_id: int, cert_data: CertificateCreate):
-        """Tạo Root CA (Self-signed với quyền hạn CA)"""
-        key_record = key_repo.get_by_id(db, cert_data.key_id, user_id)
+    async def create_root_ca(self, db: AsyncSession, user_id: int, cert_data: CertificateCreate):
+        key_record = await key_repo.get_by_id(db, cert_data.key_id, user_id)
         private_key = self._get_private_key(key_record)
         public_key = load_pem_public_key(key_record.public_key)
 
@@ -65,9 +62,7 @@ class CertificateService:
             .serial_number(x509.random_serial_number())
             .not_valid_before(datetime.now(UTC))
             .not_valid_after(datetime.now(UTC) + timedelta(days=cert_data.valid_days))
-            .add_extension(
-                x509.BasicConstraints(ca=True, path_length=None), critical=True
-            )
+            .add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)
             .add_extension(
                 x509.KeyUsage(
                     digital_signature=True,
@@ -86,7 +81,7 @@ class CertificateService:
 
         certificate = cert_builder.sign(private_key, hashes.SHA256())
 
-        return certificate_repo.create(
+        created_cert = await certificate_repo.create(
             db=db,
             user_id=user_id,
             key_id=key_record.id,
@@ -101,16 +96,23 @@ class CertificateService:
             valid_to=certificate.not_valid_after_utc,
         )
 
-    def create_signed_cert(
-        self, db: Session, user_id: int, cert_data: CertificateCreate, issuer_cert
+        await log_service.log_action(
+            db=db,
+            user_id=user_id,
+            action="CREATE_ROOT_CA",
+            target_type=TargetResourceType.CERTIFICATE,
+            target_id=str(created_cert.id),
+            payload={"serial": str(certificate.serial_number), "subject": cert_data.subject},
+        )
+        return created_cert
+
+    async def create_signed_cert(
+        self, db: AsyncSession, user_id: int, cert_data: CertificateCreate, issuer_cert
     ):
-        """Tạo chứng chỉ con (Intermediate CA, End-User, hoặc TSA) được ký bởi CA cấp trên."""
-        user_key_record = key_repo.get_by_id(db, cert_data.key_id, user_id)
+        user_key_record = await key_repo.get_by_id(db, cert_data.key_id, user_id)
         user_public_key = load_pem_public_key(user_key_record.public_key)
 
-        issuer_key_record = key_repo.get_by_id(
-            db, issuer_cert.key_id, issuer_cert.user_id
-        )
+        issuer_key_record = await key_repo.get_by_id(db, issuer_cert.key_id, issuer_cert.user_id)
         issuer_private_key = self._get_private_key(issuer_key_record)
         issuer_x509 = x509.load_der_x509_certificate(issuer_cert.certificate_data)
 
@@ -121,8 +123,11 @@ class CertificateService:
             ]
         )
 
-        is_ca = True if cert_data.cert_type == "intermediate" else False
-        is_tsa = True if cert_data.cert_type == "tsa" else False
+        is_ca = cert_data.cert_type == CertType.INTERMEDIATE
+        is_tsa = (
+            cert_data.cert_type == CertType.END_ENTITY
+            and getattr(cert_data, "purpose", "") == "timestamping"
+        )
 
         cert_builder = (
             x509.CertificateBuilder()
@@ -133,12 +138,10 @@ class CertificateService:
             .not_valid_before(datetime.now(UTC))
             .not_valid_after(datetime.now(UTC) + timedelta(days=cert_data.valid_days))
             .add_extension(
-                x509.BasicConstraints(ca=is_ca, path_length=0 if is_ca else None),
-                critical=True,
+                x509.BasicConstraints(ca=is_ca, path_length=0 if is_ca else None), critical=True
             )
         )
 
-        # 1. NẾU LÀ USER THƯỜNG
         if not is_ca and not is_tsa:
             cert_builder = cert_builder.add_extension(
                 x509.KeyUsage(
@@ -155,9 +158,7 @@ class CertificateService:
                 critical=True,
             )
 
-        # 2. NẾU LÀ INTERNAL TSA (TIME STAMPING AUTHORITY)
         if is_tsa:
-            # Bắt buộc 1: KeyUsage chỉ được phép Digital Signature hoặc Non Repudiation
             cert_builder = cert_builder.add_extension(
                 x509.KeyUsage(
                     digital_signature=True,
@@ -172,24 +173,20 @@ class CertificateService:
                 ),
                 critical=True,
             )
-            # Bắt buộc 2: Extended Key Usage -> Time Stamping (Để Adobe nhận diện đây là TSA)
             cert_builder = cert_builder.add_extension(
-                x509.ExtendedKeyUsage([ExtendedKeyUsageOID.TIME_STAMPING]),
-                critical=True,
+                x509.ExtendedKeyUsage([ExtendedKeyUsageOID.TIME_STAMPING]), critical=True
             )
 
         certificate = cert_builder.sign(issuer_private_key, hashes.SHA256())
 
-        return certificate_repo.create(
+        created_cert = await certificate_repo.create(
             db=db,
             user_id=user_id,
             key_id=user_key_record.id,
             cert_name=cert_data.cert_name,
             certificate_data=certificate.public_bytes(Encoding.DER),
             certificate_pem=certificate.public_bytes(Encoding.PEM).decode(),
-            issuer=issuer_x509.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[
-                0
-            ].value,
+            issuer=issuer_x509.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value,
             subject=cert_data.subject,
             cert_type=cert_data.cert_type,
             serial_number=str(certificate.serial_number),
@@ -197,29 +194,38 @@ class CertificateService:
             valid_to=certificate.not_valid_after_utc,
         )
 
-    def get_root_ca(self, db: Session):
-        return db.query(Certificate).filter(Certificate.cert_type == "root").first()
-
-    def get_intermediate_ca(self, db: Session):
-        return (
-            db.query(Certificate)
-            .filter(Certificate.cert_type == "intermediate")
-            .first()
+        await log_service.log_action(
+            db=db,
+            user_id=user_id,
+            action="CREATE_SIGNED_CERT",
+            target_type=TargetResourceType.CERTIFICATE,
+            target_id=str(created_cert.id),
+            payload={"serial": str(certificate.serial_number), "type": cert_data.cert_type},
         )
+        return created_cert
 
-    def get_internal_tsa(self, db: Session):
-        """Lấy Chứng chỉ và Khóa của Internal TSA"""
-        tsa_cert = (
-            db.query(Certificate)
-            .filter(
-                Certificate.cert_type == CertType.END_ENTITY,
-                Certificate.purpose == "timestamping",
+    async def get_root_ca(self, db: AsyncSession):
+        result = await db.execute(
+            select(Certificate).filter(Certificate.cert_type == CertType.ROOT)
+        )
+        return result.scalars().first()
+
+    async def get_intermediate_ca(self, db: AsyncSession):
+        result = await db.execute(
+            select(Certificate).filter(Certificate.cert_type == CertType.INTERMEDIATE)
+        )
+        return result.scalars().first()
+
+    async def get_internal_tsa(self, db: AsyncSession):
+        result = await db.execute(
+            select(Certificate).filter(
+                Certificate.cert_type == CertType.END_ENTITY, Certificate.purpose == "timestamping"
             )
-            .first()
         )
+        tsa_cert = result.scalars().first()
         if not tsa_cert:
             return None, None
-        tsa_key = key_repo.get_by_id(db, tsa_cert.key_id, tsa_cert.user_id)
+        tsa_key = await key_repo.get_by_id(db, tsa_cert.key_id, tsa_cert.user_id)
         return tsa_cert, tsa_key
 
 
