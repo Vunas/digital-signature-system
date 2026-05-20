@@ -1,53 +1,76 @@
 from __future__ import annotations
 
-from typing import Generator
+import os
 from types import SimpleNamespace
+from typing import AsyncGenerator
+from unittest.mock import AsyncMock
 
 import pytest
+import pytest_asyncio
 from fastapi import FastAPI
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy.pool import StaticPool
+from httpx import ASGITransport, AsyncClient
+from sqlalchemy import event
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 
 from app.core.dependencies import get_current_user, get_db
 from app.db.base import Base
 
+DATABASE_URL = os.getenv("DATABASE_URL")
+
 # --- DATABASE & APP SETUP ---
 
-
-@pytest.fixture(scope="session")
-def sqlite_engine():
-    engine = create_engine(
-        "sqlite+pysqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
+@pytest_asyncio.fixture()
+async def pg_engine() -> AsyncGenerator[AsyncEngine, None]:
+    database_url = os.getenv(
+        "DATABASE_URL", "postgresql+asyncpg://test:test@localhost:5432/test_db"
     )
+    engine = create_async_engine(database_url, echo=False, pool_pre_ping=True)
     import app.models  # noqa: F401
 
-    Base.metadata.create_all(bind=engine)
-    return engine
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+        await conn.run_sync(Base.metadata.create_all)
+
+    try:
+        yield engine
+    finally:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all)
+        await engine.dispose()
 
 
-@pytest.fixture()
-def db_session(sqlite_engine) -> Generator[Session, None, None]:
-    connection = sqlite_engine.connect()
-    transaction = connection.begin()
-    TestingSessionLocal = sessionmaker(
-        autocommit=False, autoflush=False, bind=connection
+@pytest_asyncio.fixture()
+async def db_session(pg_engine: AsyncEngine) -> AsyncGenerator[AsyncSession, None]:
+    connection = await pg_engine.connect()
+    outer_transaction = await connection.begin()
+    TestingSessionLocal = async_sessionmaker(
+        autocommit=False, autoflush=False, bind=connection, expire_on_commit=False
     )
     db = TestingSessionLocal()
+    await db.begin_nested()
+
+    @event.listens_for(db.sync_session, "after_transaction_end")
+    def _restart_savepoint(session, transaction):
+        if transaction.nested and not transaction._parent.nested:
+            session.begin_nested()
+
     try:
         yield db
     finally:
-        db.close()
-        transaction.rollback()
-        connection.close()
+        await db.close()
+        if outer_transaction.is_active:
+            await outer_transaction.rollback()
+        await connection.close()
 
 
 @pytest.fixture()
-def override_get_db(db_session: Session):
-    def _override() -> Generator[Session, None, None]:
+def override_get_db(db_session: AsyncSession):
+    async def _override() -> AsyncGenerator[AsyncSession, None]:
         yield db_session
 
     return _override
@@ -66,10 +89,10 @@ def fastapi_app_full(override_get_db) -> FastAPI:
     return app
 
 
-@pytest.fixture()
-def client_full(fastapi_app_full: FastAPI):
-    # httpx warning is silenced via pytest.ini
-    with TestClient(fastapi_app_full) as client:
+@pytest_asyncio.fixture()
+async def client_full(fastapi_app_full: FastAPI):
+    transport = ASGITransport(app=fastapi_app_full)
+    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
         yield client
 
 
@@ -77,9 +100,7 @@ def client_full(fastapi_app_full: FastAPI):
 def override_current_user_full(fastapi_app_full: FastAPI):
     from app.models.user import User
 
-    user = User(
-        id=999, username="test_enterprise_user", password_hash="hash", is_active=True
-    )
+    user = User(id=999, username="test_enterprise_user", password_hash="hash", is_active=True)
 
     def _override() -> User:
         return user
@@ -99,10 +120,10 @@ def mock_uow():
             self.committed = False
             self.rolled_back = False
 
-        def commit(self):
+        async def commit(self):
             self.committed = True
 
-        def rollback(self):
+        async def rollback(self):
             self.rolled_back = True
 
     return MockUnitOfWork()
@@ -118,12 +139,19 @@ def mock_sign_repos(monkeypatch):
         def __init__(self):
             # Default Dummy Data
             self.doc = SimpleNamespace(
-                id=1, file_name="test.pdf", original_file_path="local:/tmp/test.pdf"
+                id=1,
+                file_name="test.pdf",
+                original_file_path="local:/tmp/test.pdf",
+                signed_file_path=None,
             )
             self.key = SimpleNamespace(
                 id=1, storage_type="server", private_key_encrypted=b"ENCRYPTED"
             )
-            self.cert = SimpleNamespace(id=1, certificate_data=b"DERCERT")
+            self.cert = SimpleNamespace(
+                id=1,
+                certificate_data=b"DERCERT",
+                is_valid_now=lambda: True,
+            )
 
         def set_not_found(self):
             self.doc = None
@@ -133,14 +161,14 @@ def mock_sign_repos(monkeypatch):
         def apply(self, target_module: str = "app.services.sign_service"):
             # Tự động apply monkeypatch dựa trên state hiện tại của class
             monkeypatch.setattr(
-                f"{target_module}.document_repo.get_by_id", lambda *a, **k: self.doc
+                f"{target_module}.document_repo.get_by_id", AsyncMock(return_value=self.doc)
             )
             monkeypatch.setattr(
-                f"{target_module}.key_repo.get_by_id", lambda *a, **k: self.key
+                f"{target_module}.key_repo.get_by_id", AsyncMock(return_value=self.key)
             )
             monkeypatch.setattr(
                 f"{target_module}.certificate_repo.get_by_key_id",
-                lambda *a, **k: self.cert,
+                AsyncMock(return_value=self.cert),
             )
 
     return RepoMocker()

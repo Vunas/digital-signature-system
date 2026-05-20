@@ -2,7 +2,11 @@
 <html lang="vi">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Đảm bảo viewport chuẩn cho mobile -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
     <title>
       {% block title %}Hệ Thống Chữ Ký Số | SecureSign{% endblock %}
     </title>
@@ -43,9 +47,10 @@
       class="bg-white/90 backdrop-blur-md border-b border-gray-200 sticky top-0 z-50"
     >
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <!-- Cấu trúc 3 cột Flexbox để Menu luôn ở giữa -->
         <div class="flex items-center justify-between h-16">
-          <!-- Logo & Desktop Menu -->
-          <div class="flex items-center">
+          <!-- 1. Logo (Căn trái) -->
+          <div class="flex items-center flex-shrink-0 w-auto md:w-1/4">
             <div
               class="flex items-center space-x-2 cursor-pointer"
               onclick="window.location.href = '/'"
@@ -57,109 +62,110 @@
               </div>
               <a
                 href="/"
-                class="font-bold text-xl tracking-tight text-slate-900"
+                class="font-bold text-xl tracking-tight text-slate-900 hidden sm:block"
               >
                 Secure<span class="text-blue-600">Sign</span>
               </a>
             </div>
-
-            <!-- Desktop Menu -->
-            <div class="hidden md:block">
-              <div class="ml-56 flex items-center space-x-1" id="main-nav">
-                <a
-                  href="/dashboard"
-                  class="nav-link px-3 py-2 rounded-md text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all"
-                >
-                  <i
-                    class="fa-solid fa-chart-pie mr-1.5 opacity-70 transition-opacity"
-                  ></i
-                  >Tổng quan
-                </a>
-                <a
-                  href="/generate-key"
-                  class="nav-link px-3 py-2 rounded-md text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all"
-                >
-                  <i
-                    class="fa-solid fa-key mr-1.5 opacity-70 transition-opacity"
-                  ></i
-                  >Quản lý Khóa
-                </a>
-                <a
-                  href="/sign"
-                  class="nav-link px-3 py-2 rounded-md text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all"
-                >
-                  <i class="fa-solid fa-pen-nib mr-1.5 transition-opacity"></i
-                  >Ký Văn Bản
-                </a>
-                <a
-                  href="/verify"
-                  class="nav-link px-3 py-2 rounded-md text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all"
-                >
-                  <i
-                    class="fa-solid fa-shield-halved w-6 text-center opacity-70 mr-2"
-                  ></i
-                  >Xác Thực
-                </a>
-                <a
-                  href="/log"
-                  class="mobile-nav-link block px-3 py-3 rounded-md text-base font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-all"
-                >
-                  <i
-                    class="fa-solid fa-shield-halved w-6 text-center opacity-70 mr-2"
-                  ></i
-                  >Hoạt động
-                </a>
-              </div>
-            </div>
           </div>
 
-          <!-- User Info, Logout & Mobile Toggle -->
+          <!-- 2. Desktop Menu (Căn giữa tuyệt đối) -->
           <div
-            class="flex items-center space-x-2 sm:space-x-3 md:border-l md:border-gray-200 md:pl-4"
+            class="hidden md:flex flex-1 justify-center items-center space-x-1 lg:space-x-2"
+            id="main-nav"
           >
-            <!-- User Profile -->
+            <a
+              href="/dashboard"
+              class="nav-link px-3 py-2 rounded-md text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all whitespace-nowrap"
+            >
+              <i
+                class="fa-solid fa-chart-pie mr-1.5 opacity-70 transition-opacity"
+              ></i
+              >Tổng quan
+            </a>
+            <a
+              href="/generate-key"
+              class="nav-link px-3 py-2 rounded-md text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all whitespace-nowrap"
+            >
+              <i
+                class="fa-solid fa-key mr-1.5 opacity-70 transition-opacity"
+              ></i
+              >Quản lý Khóa
+            </a>
+            <a
+              href="/sign"
+              class="nav-link px-3 py-2 rounded-md text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all whitespace-nowrap"
+            >
+              <i class="fa-solid fa-pen-nib mr-1.5 transition-opacity"></i>Ký
+              Văn Bản
+            </a>
+            <a
+              href="/verify"
+              class="nav-link px-3 py-2 rounded-md text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all whitespace-nowrap"
+            >
+              <i class="fa-solid fa-shield-halved opacity-70 mr-1.5"></i>Xác
+              Thực
+            </a>
+            <a
+              href="/log"
+              class="nav-link px-3 py-2 rounded-md text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all whitespace-nowrap"
+            >
+              <i class="fa-solid fa-clock-rotate-left opacity-70 mr-1.5"></i
+              >Hoạt động
+            </a>
+          </div>
+
+          <!-- 3. User Info, Logout & Mobile Toggle (Căn phải) -->
+          <div
+            class="flex items-center justify-end w-auto md:w-1/4 flex-shrink-0"
+          >
             <div
-              class="flex items-center space-x-2 text-sm font-medium text-slate-700"
+              class="flex items-center space-x-2 sm:space-x-3 md:border-l md:border-gray-200 md:pl-4"
             >
+              <!-- User Profile -->
               <div
-                class="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-slate-600"
+                class="flex items-center space-x-2 text-sm font-medium text-slate-700"
               >
-                <i class="fa-regular fa-user"></i>
+                <div
+                  class="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-slate-600"
+                >
+                  <i class="fa-regular fa-user"></i>
+                </div>
+                <span
+                  id="username-display"
+                  class="hidden sm:inline-block truncate max-w-[120px] lg:max-w-[200px]"
+                  >Admin User</span
+                >
               </div>
-              <span
-                id="username-display"
-                class="hidden sm:inline-block truncate max-w-[100px] lg:max-w-[200px]"
-                >Admin User</span
+
+              <!-- Logout Button -->
+              <button
+                onclick="logout()"
+                class="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-all"
+                title="Đăng xuất"
               >
+                <i class="fa-solid fa-arrow-right-from-bracket text-lg"></i>
+              </button>
+
+              <!-- Mobile menu button -->
+              <button
+                id="mobile-menu-btn"
+                type="button"
+                class="md:hidden inline-flex items-center justify-center p-2 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 focus:outline-none transition-all"
+                aria-expanded="false"
+              >
+                <span class="sr-only">Mở menu chính</span>
+                <i class="fa-solid fa-bars text-xl" id="mobile-menu-icon"></i>
+              </button>
             </div>
-
-            <!-- Logout Button -->
-            <button
-              onclick="logout()"
-              class="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-all"
-              title="Đăng xuất"
-            >
-              <i class="fa-solid fa-arrow-right-from-bracket text-lg"></i>
-            </button>
-
-            <!-- Mobile menu button -->
-            <button
-              id="mobile-menu-btn"
-              type="button"
-              class="md:hidden inline-flex items-center justify-center p-2 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 focus:outline-none transition-all"
-              aria-expanded="false"
-            >
-              <span class="sr-only">Mở menu chính</span>
-              <i class="fa-solid fa-bars text-xl" id="mobile-menu-icon"></i>
-            </button>
           </div>
         </div>
       </div>
 
-      <!-- Mobile Menu Panel (Hidden by default) -->
+      <!-- Mobile Menu Panel -->
       <div
         id="mobile-menu"
-        class="hidden md:hidden bg-white border-t border-gray-100 shadow-lg absolute w-full left-0 top-16"
+        class="hidden md:hidden bg-white border-t border-gray-100 shadow-lg absolute w-full left-0 top-16 origin-top"
       >
         <div class="px-4 pt-2 pb-4 space-y-1 sm:px-6">
           <a
@@ -192,27 +198,27 @@
             >Xác Thực
           </a>
           <a
-            href="/audit"
+            href="/log"
             class="mobile-nav-link block px-3 py-3 rounded-md text-base font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-all"
           >
             <i
-              class="fa-solid fa-shield-halved w-6 text-center opacity-70 mr-2"
+              class="fa-solid fa-clock-rotate-left w-6 text-center opacity-70 mr-2"
             ></i
-            >Phiên bản Audit
+            >Nhật Ký Hệ Thống
           </a>
         </div>
       </div>
     </nav>
 
     <main
-      class="flex-grow w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8"
+      class="flex-grow w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8 overflow-hidden"
     >
       {% block content %} {% endblock %}
     </main>
 
-    <footer class="bg-white border-t border-slate-200 py-10 mt-auto">
+    <footer class="bg-white border-t border-slate-200 py-8 md:py-10 mt-auto">
       <div
-        class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center gap-6"
+        class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center gap-4 md:gap-6"
       >
         <div class="flex items-center space-x-3">
           <div
@@ -220,23 +226,27 @@
             onclick="window.scrollTo({ top: 0, behavior: 'smooth' })"
           >
             <div
-              class="bg-gradient-to-tr from-blue-600 to-indigo-600 text-white p-2.5 rounded-xl shadow-lg shadow-blue-500/30 group-hover:shadow-blue-500/50 transition-all duration-300"
+              class="bg-gradient-to-tr from-blue-600 to-indigo-600 text-white p-2 md:p-2.5 rounded-xl shadow-lg shadow-blue-500/30 group-hover:shadow-blue-500/50 transition-all duration-300"
             >
               <i class="fa-solid fa-file-signature text-xl"></i>
             </div>
-            <span class="font-extrabold text-2xl tracking-tight text-slate-900">
+            <span
+              class="font-extrabold text-xl md:text-2xl tracking-tight text-slate-900"
+            >
               Secure<span class="text-blue-600">Sign</span>
             </span>
           </div>
         </div>
 
-        <p class="text-sm text-slate-500 font-medium text-center md:text-left">
+        <p
+          class="text-sm text-slate-500 font-medium text-center md:text-left order-3 md:order-none"
+        >
           &copy; 2026 by
           <span class="font-semibold text-gray-900">SecureSign</span>. All
           rights reserved.
         </p>
 
-        <div class="flex space-x-5">
+        <div class="flex space-x-4 md:space-x-5 order-2 md:order-none">
           <a
             href="https://github.com/Vunas/digital-signature-system"
             class="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-blue-600 hover:text-white transition-all shadow-sm"

@@ -1,6 +1,9 @@
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import pytest
+
+pytestmark = pytest.mark.asyncio
 
 from app.services.certificate_service import CertificateService
 
@@ -11,52 +14,46 @@ def cert_service():
 
 
 class TestCertificateServiceFlow:
-    def test_get_internal_tsa_not_found_returns_none_tuple(self, cert_service):
+    async def test_get_internal_tsa_not_found_returns_none_tuple(self, cert_service):
         # Arrange
-        class DummyQuery:
-            def filter(self, *args, **kwargs):
-                return self
-
-            def first(self):
-                return None
-
-        db = SimpleNamespace(query=lambda model: DummyQuery())
+        db = SimpleNamespace(
+            execute=AsyncMock(
+                return_value=SimpleNamespace(scalars=lambda: SimpleNamespace(first=lambda: None))
+            )
+        )
 
         # Act
-        tsa_cert, tsa_key = cert_service.get_internal_tsa(db)
+        tsa_cert, tsa_key = await cert_service.get_internal_tsa(db)
 
         # Assert
         assert tsa_cert is None
         assert tsa_key is None
 
-    def test_get_internal_tsa_found_returns_cert_and_key(
+    async def test_get_internal_tsa_found_returns_cert_and_key(
         self, cert_service, monkeypatch
     ):
         # Arrange
         tsa_cert = SimpleNamespace(key_id=11, user_id=2)
         tsa_key = SimpleNamespace(id=11)
 
-        class DummyQuery:
-            def filter(self, *args, **kwargs):
-                return self
-
-            def first(self):
-                return tsa_cert
-
-        db = SimpleNamespace(query=lambda model: DummyQuery())
+        db = SimpleNamespace(
+            execute=AsyncMock(
+                return_value=SimpleNamespace(scalars=lambda: SimpleNamespace(first=lambda: tsa_cert))
+            )
+        )
         monkeypatch.setattr(
             "app.services.certificate_service.key_repo.get_by_id",
-            lambda db, key_id, user_id: tsa_key,
+            AsyncMock(return_value=tsa_key),
         )
 
         # Act
-        out_cert, out_key = cert_service.get_internal_tsa(db)
+        out_cert, out_key = await cert_service.get_internal_tsa(db)
 
         # Assert
         assert out_cert == tsa_cert
         assert out_key == tsa_key
 
-    def test_create_root_ca_happy_path_calls_repository_create(
+    async def test_create_root_ca_happy_path_calls_repository_create(
         self, cert_service, monkeypatch
     ):
         # Arrange
@@ -72,7 +69,7 @@ class TestCertificateServiceFlow:
 
         monkeypatch.setattr(
             "app.services.certificate_service.key_repo.get_by_id",
-            lambda db, key_id, user_id: key_record,
+            AsyncMock(return_value=key_record),
         )
         monkeypatch.setattr(
             cert_service, "_get_private_key", lambda key_record: object()
@@ -122,11 +119,12 @@ class TestCertificateServiceFlow:
         created = {}
         monkeypatch.setattr(
             "app.services.certificate_service.certificate_repo.create",
-            lambda **kwargs: created.update(kwargs) or SimpleNamespace(id=9),
+            AsyncMock(side_effect=lambda **kwargs: created.update(kwargs) or SimpleNamespace(id=9)),
         )
+        monkeypatch.setattr("app.services.certificate_service.log_service.log_action", AsyncMock())
 
         # Act
-        out = cert_service.create_root_ca(db=object(), user_id=3, cert_data=cert_data)
+        out = await cert_service.create_root_ca(db=object(), user_id=3, cert_data=cert_data)
 
         # Assert
         assert out.id == 9

@@ -1,7 +1,7 @@
 import json
 import hashlib
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.future import select
+from sqlalchemy import select
 from sqlalchemy import desc
 from fastapi.encoders import jsonable_encoder
 

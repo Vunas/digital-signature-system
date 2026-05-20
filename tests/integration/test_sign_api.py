@@ -1,14 +1,17 @@
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import pytest
 
+pytestmark = pytest.mark.asyncio
+
 
 @pytest.mark.integration
-def test_sign_endpoint_returns_signature_response_shape(
+async def test_sign_endpoint_returns_signature_response_shape(
     client_full, fastapi_app_full, override_current_user_full, monkeypatch
 ):
     # Validates: /api/signatures/sign-pdf uses dependency overrides and returns response.
-    def fake_sign_pdf(db, user_id: int, sign_data):
+    async def fake_sign_pdf(db, user_id: int, sign_data):
         assert user_id == override_current_user_full.id
         return SimpleNamespace(
             id=1,
@@ -37,7 +40,7 @@ def test_sign_endpoint_returns_signature_response_shape(
         "raw_private_key": None,
     }
 
-    res = client_full.post("/api/signatures/sign-pdf", json=payload)
+    res = await client_full.post("/api/signatures/sign-pdf", json=payload)
     assert res.status_code == 200, res.text
     body = res.json()
 

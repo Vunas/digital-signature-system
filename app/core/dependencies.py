@@ -6,7 +6,7 @@ from typing import AsyncGenerator
 
 from app.db.session import AsyncSessionLocal
 from app.core.config import settings
-from app.models.user import User  # Giả sử bạn có model này
+from app.models.user import User  
 
 
 # ==========================================

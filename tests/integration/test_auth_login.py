@@ -1,19 +1,21 @@
 import pytest
-
 from app.core.security import get_password_hash
 from app.models.user import User
 
+pytestmark = pytest.mark.asyncio
+
+
 
 @pytest.mark.integration
-def test_login_sets_http_only_cookies(client_full, db_session):
+async def test_login_sets_http_only_cookies(client_full, db_session):
     # Validates: /auth/login authenticates and sets access/refresh cookies.
     u = User(
         username="alice", password_hash=get_password_hash("secret"), is_active=True
     )
     db_session.add(u)
-    db_session.commit()
+    await db_session.commit()
 
-    res = client_full.post(
+    res = await client_full.post(
         "/auth/login",
         data={"username": "alice", "password": "secret"},
         headers={"content-type": "application/x-www-form-urlencoded"},
@@ -28,13 +30,13 @@ def test_login_sets_http_only_cookies(client_full, db_session):
 
 
 @pytest.mark.integration
-def test_login_wrong_password_returns_401(client_full, db_session):
+async def test_login_wrong_password_returns_401(client_full, db_session):
     # Validates: wrong password is rejected deterministically.
     u = User(username="bob", password_hash=get_password_hash("secret"), is_active=True)
     db_session.add(u)
-    db_session.commit()
+    await db_session.commit()
 
-    res = client_full.post(
+    res = await client_full.post(
         "/auth/login",
         data={"username": "bob", "password": "wrong"},
         headers={"content-type": "application/x-www-form-urlencoded"},

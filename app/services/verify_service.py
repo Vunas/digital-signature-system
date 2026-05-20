@@ -6,7 +6,7 @@ from pyhanko_certvalidator import ValidationContext
 from pyhanko_certvalidator.errors import PathBuildingError
 from asn1crypto import x509
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.future import select
+from sqlalchemy import select
 
 from app.models.certificate import Certificate
 
