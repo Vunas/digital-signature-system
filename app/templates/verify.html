@@ -151,13 +151,7 @@ endblock %} {% block content %}
       formData.append("file", selectedFile);
 
       try {
-        // Gọi API backend (không yêu cầu header Token vì Verify là public)
-        const response = await fetch("/api/verify/pdf", {
-          method: "POST",
-          body: formData,
-        });
-
-        const data = await response.json();
+        const data = await fetchAPI("/api/verify/pdf", "POST", formData, true);
 
         if (data.is_valid) {
           const signerData = data.signer_info

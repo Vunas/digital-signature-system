@@ -6,7 +6,7 @@ from app.models.key import SignatureAlgo, KeyStorageType
 
 class KeyCreate(BaseModel):
     key_name: str
-    storage_type: KeyStorageType = KeyStorageType.server
+    storage_type: KeyStorageType = KeyStorageType.SERVER
     key_size: int = 2048
     algorithm: SignatureAlgo = SignatureAlgo.RSA
     passphrase: Optional[str] = None

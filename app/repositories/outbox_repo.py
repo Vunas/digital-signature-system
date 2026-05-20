@@ -1,6 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 
 from app.models.outbox_event import OutboxEvent, OutboxStatus
 from app.schemas.outbox_schema import OutboxEventCreate
@@ -35,7 +35,7 @@ class OutboxRepository:
     async def mark_as_processed(self, db: AsyncSession, event: OutboxEvent):
         """Đánh dấu sự kiện đã được xử lý thành công."""
         event.status = OutboxStatus.PROCESSED
-        event.processed_at = datetime.now(timezone.utc)
+        event.processed_at = datetime.now(UTC)
         await db.flush()
         return event
 
@@ -43,7 +43,7 @@ class OutboxRepository:
         """Đánh dấu sự kiện bị lỗi để sau này Retry."""
         event.status = OutboxStatus.FAILED
         event.error_message = error_msg
-        event.processed_at = datetime.now(timezone.utc)
+        event.processed_at = datetime.now(UTC)
         await db.flush()
         return event
 

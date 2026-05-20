@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 import base64
 
 from app.core.dependencies import get_db, get_current_user
@@ -12,31 +12,27 @@ router = APIRouter(prefix="/dashboard-api", tags=["Dashboard"])
 
 
 @router.get("/summary")
-def get_dashboard_summary(
-    db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
+async def get_dashboard_summary(
+    db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)
 ):
     """
-    API cung cấp toàn bộ dữ liệu thống kê cho giao diện Dashboard HTML
-    (Tổng số khóa, văn bản, lịch sử ký số,...)
+    API cung cấp toàn bộ dữ liệu thống kê cho giao diện Dashboard HTML.
     """
-    keys = key_repo.get_all_by_user(db, current_user.id)
-    docs = document_repo.get_all_by_user(db, current_user.id)
+    keys = await key_repo.get_all_by_user(db, current_user.id)
+    docs = await document_repo.get_all_by_user(db, current_user.id)
 
-    # Gom dữ liệu chữ ký từ các file của User
     signatures_list = []
     for doc in docs:
-        doc_sigs = signature_repo.get_by_document(db, doc.id)
+        doc_sigs = await signature_repo.get_by_document(db, doc.id)
         for sig in doc_sigs:
-            # Mã hóa giá trị signature ra base64 để hiển thị trên UI
             sig_base64 = (
                 base64.b64encode(sig.signature_value).decode("utf-8")
                 if sig.signature_value
                 else "N/A"
             )
 
-            # Tìm tên khóa (nếu có)
             key_name = "Khóa bị ẩn/xóa"
-            key = key_repo.get_by_id(db, sig.key_id, current_user.id)
+            key = await key_repo.get_by_id(db, sig.key_id, current_user.id)
             if key:
                 key_name = key.key_name
 
@@ -47,17 +43,14 @@ def get_dashboard_summary(
                     "key_id": sig.key_id,
                     "key_name": key_name,
                     "signer": sig.signer_name,
-                    "algorithm": sig.signature_algorithm,
-                    "signed_at": (
-                        sig.created_at.strftime("%H:%M:%S %d-%m-%Y")
-                        if sig.created_at
-                        else ""
-                    ),
+                    "algorithm": sig.signature_algorithm.value,
+                    "signed_at": sig.created_at.strftime("%H:%M:%S %d-%m-%Y")
+                    if sig.created_at
+                    else "",
                     "signature_base64": sig_base64,
                 }
             )
 
-    # Format JSON trả về để tương thích với thẻ script loadDashboard() trong dashboard.html
     return {
         "stats": {
             "total_keys": len(keys),
@@ -68,20 +61,15 @@ def get_dashboard_summary(
             {
                 "id": k.id,
                 "name": k.key_name,
-                "algorithm": k.algorithm,
-                "storage_type": k.storage_type,
+                "algorithm": k.algorithm.value,
+                "storage_type": k.storage_type.value,
                 "created_at": k.created_at.strftime("%d-%m-%Y") if k.created_at else "",
-                # Chuyển kiểu bytes sang String để frontend đọc được
-                "public_key": (
-                    k.public_key.decode("utf-8")
-                    if isinstance(k.public_key, bytes)
-                    else k.public_key
-                ),
-                "private_key_encrypted": (
-                    base64.b64encode(k.private_key_encrypted).decode("utf-8")
-                    if isinstance(k.private_key_encrypted, bytes)
-                    else ""
-                ),
+                "public_key": k.public_key.decode("utf-8")
+                if isinstance(k.public_key, bytes)
+                else k.public_key,
+                "private_key_encrypted": base64.b64encode(k.private_key_encrypted).decode("utf-8")
+                if isinstance(k.private_key_encrypted, bytes)
+                else "",
             }
             for k in keys
         ],

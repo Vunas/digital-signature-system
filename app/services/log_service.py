@@ -1,38 +1,71 @@
-from sqlalchemy.orm import Session
-from app.models.timestamp import AuditLog
-from app.models.timestamp import VerifyLog
+import json
+import hashlib
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+from sqlalchemy import desc
+from fastapi.encoders import jsonable_encoder
+
+from app.models.audit_log import AuditLog
+from app.models.enums import TargetResourceType, LogLevel, ActionStatus
+from app.utils.logger import logger
 
 
-def create_audit_log(
-    db: Session,
-    user_id: int,
-    action: str,
-    description: str,
-    ip_address: str = "127.0.0.1",
-):
-    """
-    Ghi nhận mọi hành động của người dùng (Non-repudiation)
-    """
-    log_entry = AuditLog(
-        user_id=user_id, action=action, description=description, ip_address=ip_address
-    )
-    db.add(log_entry)
-    db.commit()
-    return log_entry
+class LogService:
+    async def log_action(
+        self,
+        db: AsyncSession,
+        user_id: int | None,
+        action: str,
+        target_type: TargetResourceType,
+        target_id: str,
+        level: LogLevel = LogLevel.INFO,
+        status: ActionStatus = ActionStatus.SUCCESS,
+        payload: dict = None,
+        ip_address: str = None,
+        user_agent: str = None,
+    ):
+        """
+        Ghi nhận một hành động vào hệ thống Audit Log.
+        Sử dụng Hashing nối tiếp (Chain Hashing) để chống giả mạo DB.
+        """
+        try:
+            # 1. Tìm log trước đó để lấy mã băm cũ (chuẩn SQLA 2.0)
+            result = await db.execute(select(AuditLog).order_by(desc(AuditLog.id)).limit(1))
+            last_log_record = result.scalars().first()
+            previous_hash = (
+                last_log_record.log_hash
+                if last_log_record and last_log_record.log_hash
+                else "GENESIS_HASH"
+            )
+
+            # 2. Chuẩn bị dữ liệu và tạo mã băm cho dòng log hiện tại
+            safe_payload = json.dumps(jsonable_encoder(payload or {}), sort_keys=True)
+            data_to_hash = f"{previous_hash}|{user_id}|{action}|{target_type}|{target_id}|{status}|{safe_payload}"
+            current_hash = hashlib.sha256(data_to_hash.encode("utf-8")).hexdigest()
+
+            # 3. Tạo record AuditLog
+            new_log = AuditLog(
+                user_id=user_id,
+                action=action,
+                target_type=target_type,
+                target_id=str(target_id) if target_id else None,
+                level=level,
+                status=status,
+                ip_address=ip_address,
+                user_agent=user_agent,
+                payload=payload,
+                log_hash=current_hash,
+            )
+
+            db.add(new_log)
+            await db.flush()
+
+            return new_log
+
+        except Exception as e:
+            logger.error(f"Lỗi nghiêm trọng khi ghi Audit Log: {str(e)}")
+            # Không raise error để tránh làm hỏng luồng nghiệp vụ chính
+            pass
 
 
-def create_verify_log(
-    db: Session, document_id: int, signature_id: int, is_valid: bool, message: str
-):
-    """
-    Ghi nhận lịch sử xác thực chữ ký
-    """
-    log_entry = VerifyLog(
-        document_id=document_id,
-        signature_id=signature_id,
-        is_valid=is_valid,
-        message=message,
-    )
-    db.add(log_entry)
-    db.commit()
-    return log_entry
+log_service = LogService()

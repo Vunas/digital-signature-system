@@ -1,34 +1,37 @@
-from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, String, JSON, DateTime, Enum
-import enum
+from datetime import datetime, UTC
+from typing import Optional, Dict, Any
+from sqlalchemy import String, DateTime, Enum
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
-
-
-class OutboxStatus(str, enum.Enum):
-    PENDING = "PENDING"
-    PROCESSED = "PROCESSED"
-    FAILED = "FAILED"
+from app.models.enums import OutboxStatus
 
 
 class OutboxEvent(Base):
     __tablename__ = "outbox_events"
+    
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    aggregate_type: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    aggregate_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    event_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    payload: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    status: Mapped[OutboxStatus] = mapped_column(
+        Enum(OutboxStatus), default=OutboxStatus.PENDING, index=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+    processed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    error_message: Mapped[Optional[str]] = mapped_column(String)
 
-    id = Column(Integer, primary_key=True, index=True)
-    # Loại dữ liệu liên quan (VD: "Certificate", "User", "Document")
-    aggregate_type = Column(String(100), nullable=False, index=True)
-    # ID của dữ liệu liên quan
-    aggregate_id = Column(String(100), nullable=False, index=True)
-    # Tên sự kiện (VD: "CERTIFICATE_CREATED", "USER_REGISTERED")
-    event_type = Column(String(100), nullable=False)
-    
-    # Payload chứa thông tin cần thiết để xử lý sự kiện
-    payload = Column(JSON, nullable=False)
-    
-    status = Column(Enum(OutboxStatus), default=OutboxStatus.PENDING, index=True)
-    
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-    processed_at = Column(DateTime(timezone=True), nullable=True)
-    
-    # Ghi lại lý do lỗi (nếu có) để dễ dàng debug và retry
-    error_message = Column(String, nullable=True)
+    def mark_processed(self) -> None:
+        """Đánh dấu event đã được Worker xử lý thành công"""
+        self.status = OutboxStatus.PROCESSED
+        self.processed_at = datetime.now(UTC)
+        self.error_message = None
+
+    def mark_failed(self, error: str) -> None:
+        """Đánh dấu event bị lỗi để Retry sau"""
+        self.status = OutboxStatus.FAILED
+        self.error_message = str(error)
