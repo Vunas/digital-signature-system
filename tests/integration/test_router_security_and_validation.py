@@ -3,10 +3,10 @@ from unittest.mock import AsyncMock
 
 import pytest
 from fastapi import HTTPException
+from app.core.dependencies import get_current_user
 
 pytestmark = pytest.mark.asyncio
 
-from app.core.dependencies import get_current_user
 
 
 class TestRouterSecurityAndValidation:

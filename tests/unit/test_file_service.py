@@ -3,10 +3,10 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
+from app.services.file_service import FileService
 
 pytestmark = pytest.mark.asyncio
 
-from app.services.file_service import FileService
 
 
 class DummyUploadFile:

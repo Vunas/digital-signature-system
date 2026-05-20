@@ -3,10 +3,10 @@ from unittest.mock import AsyncMock
 
 import pytest
 import jwt
-
-pytestmark = pytest.mark.asyncio
 from fastapi import HTTPException, Request
 from app.core.dependencies import get_current_user
+
+pytestmark = pytest.mark.asyncio
 
 
 def _build_request(cookies: dict):

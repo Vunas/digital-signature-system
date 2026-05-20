@@ -3,11 +3,11 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
+from app.models.key import KeyStorageType, SignatureAlgo
+from app.services.key_service import KeyService
 
 pytestmark = pytest.mark.asyncio
 
-from app.models.key import KeyStorageType, SignatureAlgo
-from app.services.key_service import KeyService
 
 
 @pytest.mark.unit

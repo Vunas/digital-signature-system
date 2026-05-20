@@ -2,10 +2,10 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
+from app.services.sign_service import SignService
 
 pytestmark = pytest.mark.asyncio
 
-from app.services.sign_service import SignService
 
 
 @pytest.mark.unit

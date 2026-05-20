@@ -2,10 +2,10 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
+from app.services.certificate_service import CertificateService
 
 pytestmark = pytest.mark.asyncio
 
-from app.services.certificate_service import CertificateService
 
 
 class TestCertificateServiceSignedCert:

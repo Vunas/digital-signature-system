@@ -3,10 +3,10 @@ import builtins
 from unittest.mock import AsyncMock
 
 import pytest
+from app.services.verify_service import VerifyService
 
 pytestmark = pytest.mark.asyncio
 
-from app.services.verify_service import VerifyService
 
 
 @pytest.mark.unit
