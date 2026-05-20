@@ -40,8 +40,9 @@ async def seed_users(db: AsyncSession):
 
     users_data = [
         {"username": "admin", "pass": "123456"},
-        {"username": "giamdoc_nguyen", "pass": "123456"},
-        {"username": "nhanvien_tran", "pass": "123456"},
+        {"username": "giamdoc", "pass": "123456"},
+        {"username": "nhanvien", "pass": "123456"},
+        {"username": "demo", "pass": "123456"},
         {"username": "user1", "pass": "123456"},
         {"username": "user2", "pass": "123456"},
         {"username": "user3", "pass": "123456"},
@@ -82,7 +83,7 @@ async def seed_pki(db: AsyncSession, users: dict):
     print("🔑 Đang tạo Hệ thống PKI...")
 
     admin = users["admin"]
-    giamdoc = users["giamdoc_nguyen"]
+    giamdoc = users["giamdoc"]
 
     # ROOT CA
     root_key = await key_service.create_key(
@@ -223,8 +224,8 @@ async def seed_documents(db: AsyncSession, users: dict):
     upload_dir = "storage/uploads"
     os.makedirs(upload_dir, exist_ok=True)
 
-    giamdoc = users["giamdoc_nguyen"]
-    nhanvien = users["nhanvien_tran"]
+    giamdoc = users["giamdoc"]
+    nhanvien = users["nhanvien"]
 
     minimal_pdf = b"%PDF-1.4 fake"
 
@@ -292,7 +293,7 @@ async def seed_signatures(
 ):
     print("✍️ Đang tạo Signatures...")
 
-    giamdoc = users["giamdoc_nguyen"]
+    giamdoc = users["giamdoc"]
 
     signed_docs = [d for d in docs if d.status in ["SIGNED", "VERIFIED"]]
 
@@ -418,7 +419,7 @@ async def run_seed(force=False):
             print("-" * 50)
             print("✅ HOÀN TẤT SEED DATA")
             print("🚀 Admin: admin / 123456")
-            print("🚀 Giám đốc: giamdoc_nguyen / 123456")
+            print("🚀 Giám đốc: giamdoc / 123456")
             print("-" * 50)
 
         except Exception as e:

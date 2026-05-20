@@ -222,8 +222,8 @@ This will start:
 | Username       | Role     | Description                   |
 | -------------- | -------- | ----------------------------- |
 | admin          | Admin    | Full system control (Root CA) |
-| giamdoc_nguyen | Signer   | Ready to sign documents       |
-| nhanvien_tran  | Employee | Upload & review documents     |
+| demo           | User     | Ready to sign documents       |
+| user0 -> 9     | User     | Ready to sign documents       |
 
 **Password:** `123456`
 
