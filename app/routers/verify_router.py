@@ -1,6 +1,7 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 import os
+import uuid
 import aiofiles
 
 from app.core.dependencies import get_db, get_current_user
@@ -24,28 +25,33 @@ async def verify_uploaded_pdf(
     if file.content_type != "application/pdf":
         raise HTTPException(status_code=400, detail="Vui lòng tải lên file định dạng PDF.")
 
-    temp_path = f"temp_{file.filename}"
+    safe_filename = f"temp_verify_{uuid.uuid4().hex}.pdf"
+
     try:
         logger.info(
-            f"User {current_user.username} đang thực hiện xac thực tài liệu PDF: {file.filename}"
+            f"User {current_user.username} đang thực hiện xác thực tài liệu PDF: {file.filename}"
         )
-        file.file.seek(0)
 
-        # Sử dụng aiofiles để lưu file bất đồng bộ (tránh block I/O)
-        async with aiofiles.open(temp_path, "wb") as out_file:
+        # Đảm bảo con trỏ file nằm ở vị trí đầu tiên trước khi đọc
+        await file.seek(0)
+
+        # Sử dụng aiofiles để lưu file bất đồng bộ (tránh block I/O của Event Loop)
+        async with aiofiles.open(safe_filename, "wb") as out_file:
             content = await file.read()
             await out_file.write(content)
 
-        # Xác thực file (Hệ thống tự log vào Audit)
-        result = await verify_service.verify_pdf_signature(db, temp_path, current_user.id)
+        result = await verify_service.verify_pdf_signature(db, safe_filename, current_user.id)
 
-        await db.commit()  
+        await db.commit()
+
         return result
 
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Lỗi hệ thống khi verify PDF ({file.filename}): {str(e)}")
+        raise HTTPException(status_code=500, detail="Đã xảy ra lỗi trong quá trình phân tích file.")
 
     finally:
-        if os.path.exists(temp_path):
-            os.remove(temp_path)
+        # Cleanup: Luôn luôn xóa file tạm dù thành công hay ném ra Exception
+        if os.path.exists(safe_filename):
+            os.remove(safe_filename)

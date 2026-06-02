@@ -9,8 +9,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.models.certificate import Certificate
-
-# Centralized Enums (Fixed Imports)
 from app.models.enums import CertType, TargetResourceType, ActionStatus
 from app.services.log_service import log_service
 from app.services.verify_log_service import verify_log_service
@@ -29,7 +27,6 @@ class VerifyService:
             msg = (
                 "File PDF tải lên bị rỗng (0 bytes). Quá trình truyền file có thể đã bị gián đoạn."
             )
-
             await log_service.log_action(
                 db=db,
                 user_id=user_id,
@@ -50,6 +47,8 @@ class VerifyService:
 
             return {
                 "is_valid": False,
+                "is_integrity_valid": False,
+                "is_cert_valid": False,
                 "message": msg,
                 "signer_info": None,
             }
@@ -89,6 +88,8 @@ class VerifyService:
                 )
                 return {
                     "is_valid": False,
+                    "is_integrity_valid": False,
+                    "is_cert_valid": False,
                     "message": msg,
                     "signer_info": None,
                 }
@@ -109,10 +110,10 @@ class VerifyService:
                 payload={"message": result.get("message")},
             )
 
-            # Ghi log Verify chi tiết về trạng thái chữ ký
+            # Ghi log Verify chi tiết về trạng thái chữ ký (lưu cục JSON sạch)
             await verify_log_service.create_verify_log(
                 db=db,
-                document_id=None,  # Nếu truyền từ router xuống có thể gắn document_id vào
+                document_id=None,
                 signature_id=None,
                 verified_by_user_id=user_id,
                 is_valid=result.get("is_valid", False),
@@ -126,7 +127,6 @@ class VerifyService:
 
         except PathBuildingError:
             msg = "Chữ ký KHÔNG HỢP LỆ. Không thể xác minh nguồn gốc chứng chỉ (Chứng chỉ giả mạo hoặc cấp bởi bên thứ 3)."
-
             await log_service.log_action(
                 db=db,
                 user_id=user_id,
@@ -147,13 +147,14 @@ class VerifyService:
 
             return {
                 "is_valid": False,
+                "is_integrity_valid": False,
+                "is_cert_valid": False,
                 "message": msg,
                 "signer_info": None,
             }
 
         except Exception as e:
             msg = f"Lỗi hệ thống khi phân tích mã PDF: {str(e)}"
-
             await log_service.log_action(
                 db=db,
                 user_id=user_id,
@@ -174,6 +175,8 @@ class VerifyService:
 
             return {
                 "is_valid": False,
+                "is_integrity_valid": False,
+                "is_cert_valid": False,
                 "message": msg,
                 "signer_info": None,
             }
@@ -212,36 +215,26 @@ class VerifyService:
             reason = sig_dict.get("/Reason", "")
             reason_str = reason.decode("utf-8") if hasattr(reason, "decode") else str(reason)
 
-            if status.coverage.name == "ENTIRE_FILE":
-                coverage_str = "<span class='text-emerald-600 font-bold'><i class='fa-solid fa-check-circle mr-1'></i> Toàn vẹn 100% (Không có sửa đổi nào sau khi ký)</span>"
-                main_message = "Chữ ký HỢP LỆ. Dữ liệu nguyên vẹn tuyệt đối và chứng chỉ hoàn toàn KHỚP với Root CA của hệ thống."
-            else:
-                coverage_str = "<span class='text-amber-600 font-bold'><i class='fa-solid fa-triangle-exclamation mr-1'></i> Có nội dung mới (Highlight, Comment...) chèn thêm sau khi ký</span>"
-                main_message = "Chữ ký HỢP LỆ trên dữ liệu gốc. <br><span class='text-amber-600 mt-2 block'>⚠️ TUY NHIÊN: Phát hiện tài liệu đã bị sửa đổi/chèn thêm sau thời điểm ký!</span>"
+            # Xác định mức độ toàn vẹn của file (có bị chèn thêm nội dung sau khi ký hay không)
+            is_entire_file = status.coverage.name == "ENTIRE_FILE"
 
-            tsa_str = (
-                "<span class='text-emerald-600 font-bold'><i class='fa-solid fa-clock mr-1'></i> Có (Timestamp Authority)</span>"
-                if status.timestamp_validity
-                else "<span class='text-gray-500 font-bold'><i class='fa-solid fa-desktop mr-1'></i> Không (Thời gian từ máy tính)</span>"
-            )
-
-            full_signer_html = (
-                f"<ul class='space-y-3 mt-4 text-left bg-white p-4 rounded-lg border border-gray-100 shadow-sm'>"
-                f"<li class='pb-2 border-b border-gray-50'><b class='text-gray-500 block mb-1 text-[10px] uppercase tracking-wider'>Người ký (Subject)</b> <span class='text-indigo-700 font-bold text-sm'>{subject_info}</span></li>"
-                f"<li class='pb-2 border-b border-gray-50'><b class='text-gray-500 block mb-1 text-[10px] uppercase tracking-wider'>Đơn vị cấp (Issuer)</b> <span class='text-gray-800 text-sm'>{issuer_info}</span></li>"
-                f"<li class='pb-2 border-b border-gray-50'><b class='text-gray-500 block mb-1 text-[10px] uppercase tracking-wider'>Lý do ký (Reason)</b> <span class='text-gray-800 text-sm'>{reason_str or 'Không xác định'}</span></li>"
-                f"<li class='pb-2 border-b border-gray-50 flex justify-between items-center'><b class='text-gray-500 text-[10px] uppercase tracking-wider'>Nguồn thời gian</b> <span class='text-sm'>{tsa_str}</span></li>"
-                f"<li class='pt-1 bg-amber-50 -mx-4 -mb-4 p-4 rounded-b-lg border-t border-amber-100'><b class='text-gray-600 block mb-1 text-[10px] uppercase tracking-wider'>Tình trạng tài liệu</b> <span class='text-sm block'>{coverage_str}</span></li>"
-                f"</ul>"
-            )
+            # Tạo dictionary dữ liệu thuần túy (Không dính HTML)
+            signer_info_dict = {
+                "subject": subject_info,
+                "issuer": issuer_info,
+                "reason": reason_str or "Không xác định",
+                "has_tsa": bool(status.timestamp_validity),
+                "is_entire_file": is_entire_file,
+                "coverage_name": status.coverage.name,
+            }
 
             if status.valid and status.intact:
                 return {
                     "is_valid": True,
                     "is_integrity_valid": True,
                     "is_cert_valid": True,
-                    "message": main_message,
-                    "signer_info": {"subject": full_signer_html, "coverage": status.coverage.name},
+                    "message": "Kiểm tra chữ ký thành công.",
+                    "signer_info": signer_info_dict,
                 }
             else:
                 return {
@@ -249,7 +242,7 @@ class VerifyService:
                     "is_integrity_valid": status.intact,
                     "is_cert_valid": status.valid,
                     "message": "Chữ ký KHÔNG HỢP LỆ. Văn bản đã bị phá vỡ cấu trúc gốc hoặc chứng chỉ bị thu hồi/giả mạo.",
-                    "signer_info": {"subject": full_signer_html},
+                    "signer_info": signer_info_dict,
                 }
 
 

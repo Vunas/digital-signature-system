@@ -84,7 +84,9 @@ It enables secure document signing using industry standards such as **RSA, X.509
    <img src="./docs/img/4.png" width="45%" />
    <img src="./docs/img/5.png" width="45%" />
    </p>
-
+   <p align="center">
+   <img src="./docs/img/6.png" width="90%" />
+   </p>
 ---
 
 ## 🧠 Technical Highlights
@@ -121,23 +123,25 @@ It enables secure document signing using industry standards such as **RSA, X.509
 
 ## 🧪 Testing
 
-Run all tests:
+Tests use an isolated PostgreSQL database configured via:
+
+```env
+DATABASE_URL_TEST=postgresql+asyncpg://test:test@localhost:5432/test_db
+```
+
+Run:
 
 ```bash
 python -m pytest
 ```
 
-### ✔ Coverage includes:
+### ✔ Coverage
 
-* Unit tests (crypto, key service, signing logic)
-* Integration tests (API endpoints)
-* Security tests (RSA signing & verification)
-
-### ✔ Testing setup:
-
-* SQLite in-memory database
-* FastAPI dependency override
-* Isolated transactional tests
+* Unit Tests
+* Integration Tests
+* Security Tests
+* Cryptographic Validation
+* API Testing
 
 ---
 

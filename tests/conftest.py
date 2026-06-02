@@ -19,19 +19,16 @@ from sqlalchemy.ext.asyncio import (
 
 from app.core.dependencies import get_current_user, get_db
 from app.db.base import Base
+from dotenv import load_dotenv
 
-DATABASE_URL = os.getenv("DATABASE_URL")
-
-# --- DATABASE & APP SETUP ---
+load_dotenv()
 
 @pytest_asyncio.fixture()
 async def pg_engine() -> AsyncGenerator[AsyncEngine, None]:
     database_url = os.getenv(
-        "DATABASE_URL", "postgresql+asyncpg://test:test@localhost:5432/test_db"
+        "DATABASE_URL_TEST", "postgresql+asyncpg://test:test@localhost:5432/test_db"
     )
     engine = create_async_engine(database_url, echo=False, pool_pre_ping=True)
-    import app.models  # noqa: F401
-
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
