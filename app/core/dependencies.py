@@ -8,10 +8,6 @@ from app.db.session import AsyncSessionLocal
 from app.core.config import settings
 from app.models.user import User  
 
-
-# ==========================================
-# PATTERN: CLEAN DI TRANSACTION
-# ==========================================
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     async with AsyncSessionLocal() as session:
         try:
@@ -39,7 +35,6 @@ async def get_current_user(request: Request, db: AsyncSession = Depends(get_db))
         token = token.replace("Bearer ", "")
 
     try:
-        # Dùng PyJWT thay cho jose
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         username: str = payload.get("sub")
         if username is None:
@@ -47,7 +42,6 @@ async def get_current_user(request: Request, db: AsyncSession = Depends(get_db))
     except jwt.PyJWTError:
         raise credentials_exception
 
-    # Chuẩn truy vấn SQLAlchemy 2.0 (Async)
     stmt = select(User).where(User.username == username)
     result = await db.execute(stmt)
     user = result.scalar_one_or_none()

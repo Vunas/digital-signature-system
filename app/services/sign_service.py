@@ -62,7 +62,6 @@ class SignService:
             sign_data=sign_data,
         )
 
-        # SỬ DỤNG RICH MODEL METHOD: Không cần gọi doc_repo.update() nữa
         doc.mark_as_signed(new_signed_path=output_db_path, new_signed_hash=new_signed_hash)
 
         signature_record = await signature_repo.create(
@@ -102,7 +101,7 @@ class SignService:
         if not doc or not key_record or not cert_record:
             raise ValueError("Không tìm thấy tài liệu, khóa hoặc chứng thư số tương ứng.")
 
-        # Check tính hợp lệ của cert bằng hàm Rich Model nội tại
+        # Check tính hợp lệ của cert 
         if not cert_record.is_valid_now():
             raise ValueError("Chứng chỉ không hợp lệ hoặc đã hết hạn.")
 

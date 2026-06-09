@@ -51,14 +51,11 @@ class OutboxService:
                 for event in pending_events:
                     try:
                         await self.process_event(event)
-                        # SỬ DỤNG RICH MODEL: Tự thay đổi trạng thái bản thân
                         event.mark_processed()
                     except Exception as e:
                         logger.error(f"Lỗi khi xử lý Outbox Event ID {event.id}: {str(e)}")
-                        # SỬ DỤNG RICH MODEL: Ghi nhận lỗi trực tiếp vào object
                         event.mark_failed(str(e))
 
-                # Unit of Work của SQLAlchemy sẽ tự theo dõi và UPDATE các thay đổi từ event.mark_processed/failed
                 await db.commit()
 
             except Exception as e:

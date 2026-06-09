@@ -8,7 +8,6 @@ from app.schemas.outbox_schema import OutboxEventCreate
 
 class OutboxRepository:
     async def create(self, db: AsyncSession, obj_in: OutboxEventCreate):
-        """Lưu event vào Outbox. Nhớ KHÔNG dùng commit() ở đây."""
         db_obj = OutboxEvent(
             aggregate_type=obj_in.aggregate_type,
             aggregate_id=obj_in.aggregate_id,
@@ -17,7 +16,6 @@ class OutboxRepository:
             status=OutboxStatus.PENDING
         )
         db.add(db_obj)
-        # Giữ đúng chuẩn Clean DI: Chỉ flush() để tạo ID tạm thời
         await db.flush()
         return db_obj
 
