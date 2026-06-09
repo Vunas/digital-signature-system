@@ -44,7 +44,6 @@ class AuthService:
         if not user or not verify_password(password, user.password_hash):
             raise ValueError("Sai tên đăng nhập hoặc mật khẩu")
 
-        # SỬ DỤNG RICH MODEL (Kiểm tra xem User có đang activate không)
         if not user.is_active:
             raise ValueError("Tài khoản của bạn đã bị khóa.")
 

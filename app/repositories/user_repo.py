@@ -20,7 +20,7 @@ class UserRepository:
         hashed_password = get_password_hash(obj_in.password)
         db_obj = User(username=obj_in.username, password_hash=hashed_password)
         db.add(db_obj)
-        await db.flush()  # Thay commit() bằng flush()
+        await db.flush() 
         await db.refresh(db_obj)
         return db_obj
 

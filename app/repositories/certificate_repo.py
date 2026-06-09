@@ -22,11 +22,8 @@ class CertificateRepository:
     async def create(self, db: AsyncSession, **kwargs):
         db_obj = Certificate(**kwargs)
         db.add(db_obj)
-
         await db.flush()
-
         await db.refresh(db_obj)
-
         return db_obj
 
 
