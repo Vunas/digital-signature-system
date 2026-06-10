@@ -37,6 +37,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.get("/api/health-check", tags=["System"], include_in_schema=True)
+async def health_check():
+    from datetime import datetime, UTC
+    return {
+        "status": "healthy",
+        "timestamp": datetime.now(UTC).isoformat(),
+        "service": settings.PROJECT_NAME
+    }
+
 # 4. CẤU HÌNH GIAO DIỆN (UI) VÀ TÀI NGUYÊN TĨNH
 # Tạo thư mục nếu chưa tồn tại để tránh lỗi crash
 os.makedirs("app/static/css", exist_ok=True)

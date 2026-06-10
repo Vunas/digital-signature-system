@@ -29,7 +29,7 @@ class LogService:
         Sử dụng Hashing nối tiếp (Chain Hashing) để chống giả mạo DB.
         """
         try:
-            # 1. Tìm log trước đó để lấy mã băm cũ (chuẩn SQLA 2.0)
+            # 1. Tìm log trước đó để lấy mã băm cũ 
             result = await db.execute(select(AuditLog).order_by(desc(AuditLog.id)).limit(1))
             last_log_record = result.scalars().first()
             previous_hash = (

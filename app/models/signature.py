@@ -37,7 +37,6 @@ class Signature(Base):
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
-    # Relationships
     document: Mapped["Document"] = relationship(back_populates="signatures")
     timestamps: Mapped[List["Timestamp"]] = relationship(
         back_populates="signature", cascade="all, delete-orphan"
