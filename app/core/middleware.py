@@ -6,7 +6,6 @@ from app.utils.logger import logger
 
 class LoggingMiddleware(BaseHTTPMiddleware):
     """
-    Chuẩn Clean Code Middleware:
     Chặn (Intercept) mọi request đi vào và response đi ra khỏi hệ thống.
     Đo lường thời gian xử lý và ghi log giám sát.
     """
@@ -42,7 +41,3 @@ class LoggingMiddleware(BaseHTTPMiddleware):
             logger.error(f"❌ ERROR: {method} {url} - Exception: {str(e)}")
             raise e
 
-
-# Hướng dẫn tích hợp vào file main.py:
-# from app.core.middleware import LoggingMiddleware
-# app.add_middleware(LoggingMiddleware)
